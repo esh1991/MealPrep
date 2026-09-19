@@ -11,7 +11,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "icons": "node scripts/make-icons.mjs",
-    "check": "node scripts/check-setup.mjs"
+    "check": "node scripts/check-setup.mjs",
+    "seed:sql": "node scripts/make-seed.mjs",
+    "types": "supabase gen types typescript --project-id rxwyuqcsifohiiyvyink --schema app_mealprep > lib/supabase/database.types.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
