@@ -20,7 +20,7 @@ MealPrep lives in the shared Supabase project alongside the other apps, in its o
 1. Supabase dashboard, your project, SQL editor.
 2. Open `supabase/migrations/0001_mealprep_schema.sql`, replace Doreen's placeholder email near the bottom, and run the whole file.
 3. **Project Settings, API, Exposed schemas: add `app_mealprep`.** Without this every query fails with a schema-not-found error even though the tables are visible in the table editor.
-4. Confirm it worked: the table editor should show a schema dropdown with `app_mealprep` in it, containing 13 tables, and `households` should have one row.
+4. Run `npm run check`. It uses the anon key to confirm the schema is exposed, all 13 tables and the `ensure_week` function are present, and anonymous visitors are refused. If a step is wrong it prints the exact value to paste.
 
 The migration creates the schema, tables, row-level security, the `ensure_week` function, table grants, and adds the week tables to the realtime publication. It is safe to re-run.
 
@@ -50,6 +50,7 @@ Both of you sign in with Google on your phones at the Vercel URL, see the tab ba
 
 ```
 npm run dev         local server
+npm run check       verify the Supabase setup with the anon key
 npm test            domain tests
 npm run typecheck   TypeScript
 npm run lint        ESLint
