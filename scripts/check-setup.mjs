@@ -90,25 +90,44 @@ if (probe.status === 200) {
   info(`unexpected response ${probe.status}: ${JSON.stringify(probe.body)}`);
 }
 
-// 3. Do all the tables exist? The OpenAPI description lists them even when
-//    the anon role cannot read their rows.
+// 3. Do all the tables exist? The anon role is refused before it can read a
+//    row, but "permission denied" and "no such table" are different errors,
+//    so asking for each one still tells us whether it is there.
 console.log("\nTables");
-const spec = await rest("", { "Accept-Profile": SCHEMA });
 const expected = [
   "households", "members", "ingredients", "recipes", "recipe_versions",
   "recipe_version_ingredients", "weeks", "week_slots", "week_picks",
   "week_pantry_checks", "week_extras", "week_list_checks", "week_prep_status",
 ];
-const paths = Object.keys(spec.body?.paths ?? {}).map((p) => p.replace(/^\//, ""));
-if (!paths.length) {
-  info("could not read the API description; skipping this check");
-} else {
-  const missing = expected.filter((t) => !paths.includes(t));
-  if (missing.length) fail(`missing: ${missing.join(", ")}`);
-  else pass(`all ${expected.length} tables present`);
-  if (paths.includes("rpc/ensure_week")) pass("ensure_week function present");
-  else fail("ensure_week function missing");
-}
+
+const EXISTS = new Set(["42501"]); // permission denied: the table is there
+const ABSENT = new Set(["PGRST205", "42P01"]); // unknown table
+
+const results = await Promise.all(
+  expected.map(async (t) => {
+    const r = await rest(`${t}?select=*&limit=1`, { "Accept-Profile": SCHEMA });
+    if (r.status === 200 || EXISTS.has(r.body?.code)) return { t, ok: true };
+    if (ABSENT.has(r.body?.code)) return { t, ok: false, why: "not found" };
+    return { t, ok: false, why: `${r.status} ${r.body?.code ?? ""}`.trim() };
+  }),
+);
+const missing = results.filter((r) => !r.ok);
+if (missing.length) missing.forEach((m) => fail(`${m.t}: ${m.why}`));
+else pass(`all ${expected.length} tables present`);
+
+const rpc = await fetch(`${url}/rest/v1/rpc/ensure_week`, {
+  method: "POST",
+  headers: {
+    apikey: key,
+    Authorization: `Bearer ${key}`,
+    "Content-Type": "application/json",
+    "Content-Profile": SCHEMA,
+  },
+  body: JSON.stringify({ p_start_date: "2026-01-05" }),
+});
+const rpcBody = await rpc.json().catch(() => null);
+if (ABSENT.has(rpcBody?.code) || rpc.status === 404) fail("ensure_week function missing");
+else pass("ensure_week function present");
 
 console.log(
   process.exitCode
