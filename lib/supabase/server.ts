@@ -1,13 +1,17 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import { supabaseEnv } from "./env";
+import { supabaseEnv, APP_SCHEMA } from "./env";
 
-/** Server client for server components, route handlers and server actions. */
+/**
+ * Server client for server components, route handlers and server actions.
+ * Pinned to MealPrep's schema in the shared project.
+ */
 export async function createClient() {
   const env = supabaseEnv();
   if (!env) throw new Error("Supabase is not configured. Copy .env.example to .env.local.");
   const cookieStore = await cookies();
   return createServerClient(env.url, env.key, {
+    db: { schema: APP_SCHEMA },
     cookies: {
       getAll() {
         return cookieStore.getAll();

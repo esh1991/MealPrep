@@ -12,6 +12,18 @@ Phone-first PWA for one household (Shiva and Doreen) that plans Monday-to-Friday
 
 Next.js 16 (App Router, TypeScript, plain CSS), Supabase (Postgres, Google sign-in, realtime) via `@supabase/ssr`, Vercel, the Anthropic TypeScript SDK for recipe structuring. No Tailwind, no component library.
 
+## Shared Supabase project
+
+MealPrep is one app in a shared Supabase project that hosts several of Shiva's apps, one schema each.
+
+- **MealPrep's tables live in `app_mealprep`,** never `public`. The clients in `lib/supabase/` are pinned to it via `db: { schema: APP_SCHEMA }`. A new table needs no client change, but a new *schema* would.
+- **Never touch `public`, `platform`, or another `app_*` schema.** `platform` holds shared profiles and entitlements; a trigger there already creates a profile row for every new user, so MealPrep must not add one. MealPrep has no paid plan and no entitlements row.
+- **Sign-in is the Google ID-token flow** (`signInWithIdToken` with Google Identity Services), not the OAuth redirect flow. Each app has its own Google Cloud project so the consent screen carries its own name, and every client ID is listed in Supabase's **Authorized Client IDs**. The main Client ID and Secret fields in the Supabase Google provider belong to another app: leave them alone. Magic link stays available as a fallback for when ad blockers eat Google's script.
+- **Exposed schemas.** `app_mealprep` must be listed under Project Settings, API, Exposed schemas, or every query returns a schema-not-found error.
+- `.mcp.json` gives read-only database access; authenticate with `/mcp` in a normal terminal. Use it to check a pattern against the other apps rather than guessing.
+
+Shiva keeps a separate "shared plumbing" runbook covering the whole project. It is deliberately not in this repo. Ask for it if a question comes up that the conventions above do not answer.
+
 ## Rules
 
 - **Business rules live in `lib/domain/` and are pure.** No React or Supabase imports there. Every screen renders from `compute(data)`. Tests in `lib/domain/domain.test.ts` assert the prototype's own numbers; keep them green (`npm test`).

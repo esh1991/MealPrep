@@ -13,34 +13,38 @@ Without Supabase configured you get the app shell (tabs and headers) at http://l
 
 ## One-time setup (Phase 0)
 
-### 1. Supabase project
+MealPrep lives in the shared Supabase project alongside the other apps, in its own `app_mealprep` schema. It shares sign-in with them and touches nothing they own.
 
-1. Create a project at supabase.com. Note the **Project URL** and the **anon public key** under Settings, API.
-2. Open the SQL editor and run `supabase/migrations/0001_household.sql`. Replace Doreen's email in the last statement first. This creates the household, the two members and the row-level security helper.
-3. Under Authentication, Providers, enable **Google**. It shows you the callback URL you need for the next step.
+### 1. Create the schema
 
-### 2. Google OAuth client
+1. Supabase dashboard, your project, SQL editor.
+2. Open `supabase/migrations/0001_mealprep_schema.sql`, replace Doreen's placeholder email near the bottom, and run the whole file.
+3. **Project Settings, API, Exposed schemas: add `app_mealprep`.** Without this every query fails with a schema-not-found error even though the tables are visible in the table editor.
+4. Confirm it worked: the table editor should show a schema dropdown with `app_mealprep` in it, containing 13 tables, and `households` should have one row.
 
-1. In Google Cloud Console, create an OAuth 2.0 Client ID (Web application).
-2. Add Supabase's callback URL (from the previous step) as an authorised redirect URI.
-3. Paste the client ID and secret into the Supabase Google provider settings.
-4. In Supabase, Authentication, URL Configuration, add these redirect URLs:
-   - `http://localhost:3000/auth/callback`
-   - `https://<your-vercel-domain>/auth/callback`
+The migration creates the schema, tables, row-level security, the `ensure_week` function, table grants, and adds the week tables to the realtime publication. It is safe to re-run.
+
+### 2. Google sign-in
+
+Follow `docs/SETUP-GOOGLE.md`. About 10 minutes: a Google Cloud project of MealPrep's own so the sign-in screen says MealPrep, kept in Testing mode with the two of you as test users, then its client ID added to Supabase's **Authorized Client IDs** list.
 
 ### 3. Local environment
 
-Copy `.env.example` to `.env.local` and fill in the Supabase URL and anon key. Restart `npm run dev`.
+Copy `.env.example` to `.env.local` and fill in the Supabase anon key and the Google client ID. Restart `npm run dev`.
 
 ### 4. Vercel
 
-1. Import the GitHub repo into Vercel.
-2. Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` as environment variables. `ANTHROPIC_API_KEY` comes in Phase 7.
-3. After the first deploy, add the production URL to Supabase's redirect list (step 2.4) and set it as the Site URL.
+1. Import the GitHub repo into Vercel as its own project.
+2. Add `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` and `NEXT_PUBLIC_GOOGLE_CLIENT_ID`. `ANTHROPIC_API_KEY` comes in Phase 7.
+3. After the first deploy, add the Vercel URL to the Google client's **Authorized JavaScript origins**.
 
 ### Done when
 
 Both of you sign in with Google on your phones at the Vercel URL, see the tab bar in light and dark mode, and can add the app to the home screen.
+
+## Reading the database from Claude Code
+
+`.mcp.json` points at the shared project in read-only mode. To authenticate, run `claude` in a normal terminal (not the VS Code extension), then `/mcp`, pick `supabase`, and choose Authenticate. It opens a browser and uses your Supabase login. No access token to paste, and read-only means nothing can be changed by accident.
 
 ## Scripts
 
