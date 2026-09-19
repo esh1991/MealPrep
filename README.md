@@ -17,16 +17,21 @@ MealPrep lives in the shared Supabase project alongside the other apps, in its o
 
 ### 1. Create the schema
 
-1. Supabase dashboard, your project, SQL editor.
-2. Open `supabase/migrations/0001_mealprep_schema.sql`, replace Doreen's placeholder email near the bottom, and run the whole file.
-3. **Project Settings, API, Exposed schemas: add `app_mealprep`.** Without this every query fails with a schema-not-found error even though the tables are visible in the table editor.
-4. Run `npm run check`. It uses the anon key to confirm the schema is exposed, all 13 tables and the `ensure_week` function are present, and anonymous visitors are refused. If a step is wrong it prints the exact value to paste.
+**Run the migration.** Open the SQL editor (left sidebar, the terminal icon). Paste in `supabase/migrations/0001_mealprep_schema.sql`, replace Doreen's placeholder email near the bottom, and run it.
+
+**Expose the schema.** Go to https://supabase.com/dashboard/project/rxwyuqcsifohiiyvyink/settings/api
+
+In the left sidebar this page is called **Data API**, under the INTEGRATIONS heading. Find **Exposed schemas**, add `app_mealprep` to the list, and save.
+
+Skip this and every query fails with a schema-not-found error, even though the tables look fine in the table editor. It is the one step with no other symptom.
+
+**Check it.** Run `npm run check`. It uses the anon key to confirm the schema is exposed, that all 13 tables and the `ensure_week` function exist, and that anonymous visitors are refused. If something is off it prints the exact value to paste.
 
 The migration creates the schema, tables, row-level security, the `ensure_week` function, table grants, and adds the week tables to the realtime publication. It is safe to re-run.
 
 ### 2. Google sign-in
 
-Follow `docs/SETUP-GOOGLE.md`. About 10 minutes: a Google Cloud project of MealPrep's own so the sign-in screen says MealPrep, kept in Testing mode with the two of you as test users, then its client ID added to Supabase's **Authorized Client IDs** list.
+Follow `docs/SETUP-GOOGLE.md`. About 10 minutes: a Google Cloud project of MealPrep's own so the sign-in screen says MealPrep, kept in Testing mode with the two of you as test users, then its client ID appended to the **Client IDs** list on Supabase's Google provider.
 
 ### 3. Local environment
 

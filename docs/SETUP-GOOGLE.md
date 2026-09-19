@@ -16,8 +16,8 @@ MealPrep needs a Google Cloud project of its own so the sign-in screen says "Mea
 | In `.env.local` | Done |
 | Authorized JavaScript origins | Check both URLs are listed, see step 4 |
 | Test users | Check both emails are listed, see step 3 |
-| Added to Supabase Client IDs | Step 5 |
-| Added to Vercel | Step 6 |
+| Added to Supabase Client IDs | Done |
+| Added to Vercel | Done |
 
 ---
 
@@ -65,7 +65,7 @@ MealPrep's sign-in never uses it. The secret that was pasted into chat should be
 
 ## 5. Tell Supabase about the new client
 
-1. Supabase dashboard, **Authentication**, **Sign In / Providers**, **Google**.
+1. Go to https://supabase.com/dashboard/project/rxwyuqcsifohiiyvyink/auth/providers and open **Google**.
 2. Find the **Client IDs** field. It is a comma-separated list and already holds your other apps' client IDs.
 3. Put the cursor at the very end, type a comma, then paste MealPrep's client ID. **Remove nothing.**
 4. Leave **Client Secret (for OAuth)** exactly as it is. It belongs to another app.
@@ -76,12 +76,12 @@ That list is what lets one Supabase project accept sign-ins from several differe
 
 ## 6. Vercel
 
-In the Vercel project for MealPrep (the one serving meal-prep-dun-eta.vercel.app), Settings, Environment Variables:
+In the Vercel project serving meal-prep-dun-eta.vercel.app, open Settings then Environment Variables:
 
 | Name | Value |
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://rxwyuqcsifohiiyvyink.supabase.co` |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | the anon key from Supabase, Project Settings, API Keys |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | the anon key, same value as in .env.local |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | `666322095804-h5u27otspcjprt5q05cnop30kl6f3b1u.apps.googleusercontent.com` |
 
 If a `NEXT_PUBLIC_GOOGLE_CLIENT_ID` is already there with a different value, it belongs to another app and you are looking at the wrong Vercel project. Environment variables do not leak between projects, so each app keeps its own.
