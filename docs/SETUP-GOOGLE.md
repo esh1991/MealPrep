@@ -1,8 +1,23 @@
 # Setting up Google sign-in for MealPrep
 
-About 10 minutes. You need a Google Cloud project of MealPrep's own so the sign-in screen says "MealPrep" rather than another app's name. That is the only reason for a separate project: the name and logo on the consent screen are set per project, not per app.
+MealPrep needs a Google Cloud project of its own so the sign-in screen says "MealPrep" rather than another app's name. That is the only reason for a separate project: the name and logo on the consent screen are set per project, not per client.
 
-**The short version of what you are skipping.** Your runbook's Phase 2 assumes apps with public users, which is why it asks for a privacy policy, a terms page and brand verification. MealPrep has two users, both of them you. Leaving the project in **Testing** mode with the two of you as test users means none of that is required. Sign-in keeps working indefinitely, because MealPrep never reads or writes anything in your Google account. It only asks who you are.
+**What you are skipping.** The shared-plumbing runbook's Phase 2 assumes apps with public users, which is why it asks for a privacy policy, a terms page and brand verification. MealPrep has two users, both of them you. Leaving the project in **Testing** mode with the two of you as test users means none of that is required. Sign-in keeps working indefinitely, because MealPrep never reads or writes anything in your Google account. It only asks who you are.
+
+---
+
+## Status
+
+| Step | State |
+|---|---|
+| Google Cloud project | Done |
+| Client ID | `666322095804-h5u27otspcjprt5q05cnop30kl6f3b1u.apps.googleusercontent.com` |
+| Client secret | Not used by MealPrep. Rotate the one that was pasted into chat. |
+| In `.env.local` | Done |
+| Authorized JavaScript origins | Check both URLs are listed, see step 4 |
+| Test users | Check both emails are listed, see step 3 |
+| Added to Supabase Client IDs | Step 5 |
+| Added to Vercel | Step 6 |
 
 ---
 
@@ -10,18 +25,18 @@ About 10 minutes. You need a Google Cloud project of MealPrep's own so the sign-
 
 1. Go to https://console.cloud.google.com
 2. Top left, click the project dropdown, then **New project**.
-3. Name it `MealPrep`. Leave the organization as-is. Click **Create**.
-4. Wait for the notification, then make sure the project dropdown now says MealPrep. Everything below applies to the selected project, so this matters.
+3. Name it `MealPrep`. Click **Create**.
+4. Make sure the project dropdown then says MealPrep. Everything below applies to the selected project.
 
 ## 2. Fill in the sign-in screen
 
 1. Go to https://console.cloud.google.com/auth/overview
 2. Click **Get started**.
-3. **App name:** `MealPrep`. This is the exact text you and Doreen will see on the sign-in screen.
+3. **App name:** `MealPrep`. This is the exact text you and Doreen will see.
 4. **User support email:** your Gmail.
 5. **Audience:** choose **External**.
 6. **Contact information:** your Gmail again.
-7. Agree to the policy and click **Create**.
+7. Agree and click **Create**.
 
 ## 3. Add the two of you as test users
 
@@ -30,40 +45,53 @@ About 10 minutes. You need a Google Cloud project of MealPrep's own so the sign-
 3. Add your Gmail and Doreen's Gmail. Save.
 4. Leave **Publishing status** as **Testing**. Do not click "Publish app".
 
-Only these two accounts can sign in, which is exactly what MealPrep wants.
+Only those two accounts can sign in, which is what MealPrep wants. If Doreen sees "access blocked" when she tries, her email is missing from this list.
 
-## 4. Create the sign-in client
+## 4. The sign-in client
 
-1. Go to https://console.cloud.google.com/auth/clients
-2. Click **Create client**.
-3. **Application type:** Web application.
-4. **Name:** `MealPrep web`.
-5. Under **Authorized JavaScript origins**, click Add URI and add these two:
-   - `http://localhost:3000`
-   - your Vercel URL once you have it, for example `https://mealprep-xyz.vercel.app`
-6. Leave **Authorized redirect URIs** completely empty. MealPrep signs in without a redirect, the same way your other apps do.
-7. Click **Create**.
-8. A panel shows **Client ID** and **Client secret**. Copy the **Client ID**. It looks like `1234567890-abc123def456.apps.googleusercontent.com`.
+At https://console.cloud.google.com/auth/clients, open the MealPrep web client and check:
 
-You do not need the client secret. This sign-in method never uses it.
+**Authorized JavaScript origins** has both of these:
+- `http://localhost:3000`
+- `https://meal-prep-dun-eta.vercel.app`
+
+**Authorized redirect URIs** is empty. MealPrep signs in without a redirect, the same way the other apps do.
+
+If you add or change an origin, Google can take a few minutes to apply it. A "redirect_uri_mismatch" or "origin is not allowed" error usually means an origin is missing or has a typo, and the URL must match exactly, including `https://` and no trailing slash.
+
+### About the client secret
+
+MealPrep's sign-in never uses it. The secret that was pasted into chat should be replaced: open the client, delete that secret, click **Add secret**. Nothing in MealPrep breaks, because nothing reads it.
 
 ## 5. Tell Supabase about the new client
 
-1. Supabase dashboard, your project, then **Authentication** in the sidebar, then **Sign In / Providers**, then **Google**.
-2. Leave the main **Client ID** and **Client Secret** fields exactly as they are. Another app owns those and changing them would break it.
-3. Find the **Authorized Client IDs** field. It already has your other apps' client IDs, separated by commas. Add MealPrep's client ID to the end of that list, after a comma. Do not remove anything.
-4. Save.
+1. Supabase dashboard, **Authentication**, **Sign In / Providers**, **Google**.
+2. Find the **Client IDs** field. It is a comma-separated list and already holds your other apps' client IDs.
+3. Put the cursor at the very end, type a comma, then paste MealPrep's client ID. **Remove nothing.**
+4. Leave **Client Secret (for OAuth)** exactly as it is. It belongs to another app.
+5. Leave **Skip nonce checks** off. MealPrep sends a correct nonce.
+6. Save.
 
-That field is what lets one Supabase project accept sign-ins from several different apps.
+That list is what lets one Supabase project accept sign-ins from several different apps.
 
-## 6. Give me the client ID
+## 6. Vercel
 
-Paste MealPrep's client ID into the chat. It is not a secret, it is visible in the app's page source by design. I will put it in `.env.local` and in Vercel as `NEXT_PUBLIC_GOOGLE_CLIENT_ID`, and wire up the sign-in button.
+In the Vercel project for MealPrep (the one serving meal-prep-dun-eta.vercel.app), Settings, Environment Variables:
+
+| Name | Value |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://rxwyuqcsifohiiyvyink.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | the anon key from Supabase, Project Settings, API Keys |
+| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | `666322095804-h5u27otspcjprt5q05cnop30kl6f3b1u.apps.googleusercontent.com` |
+
+If a `NEXT_PUBLIC_GOOGLE_CLIENT_ID` is already there with a different value, it belongs to another app and you are looking at the wrong Vercel project. Environment variables do not leak between projects, so each app keeps its own.
+
+Redeploy after changing these. Variables are baked in at build time, so an existing deployment will not pick them up.
 
 ---
 
 ## Two things worth knowing
 
-**Ad blockers sometimes block Google's sign-in script.** MealPrep also offers a magic-link sign-in that emails you a link, so there is always a way in if the Google button does not appear.
+**Ad blockers sometimes block Google's sign-in script.** MealPrep's login page also offers "Email me a link instead", which needs no Google setup at all. If the Google button never appears, that is why.
 
-**Google Cloud's menus get rearranged fairly often.** If a link above lands somewhere unexpected, search the console for "Google Auth Platform" and you will find the same pages.
+**Google Cloud's menus get rearranged fairly often.** If a link above lands somewhere unexpected, search the console for "Google Auth Platform".
