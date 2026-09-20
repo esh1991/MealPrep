@@ -11,10 +11,15 @@ interface HouseholdValue extends Context {
   householdName: string;
   /** The signed-in member, for stamping who made a change. */
   memberId: string;
-  /** Next week, the one being planned. */
+  /** Next week. What the home screen points at. */
   planningWeek: Week | null;
   /** This week, for the home screen. */
   currentWeek: Week | null;
+  /** The week being worked on in Plan, List and Prep. */
+  selectedWeek: Week | null;
+  selectedWeekStart: string;
+  /** Switch which week Plan, List and Prep are working on. */
+  selectWeek: (weekStart: string) => Promise<void>;
   today: string;
   /** Re-read everything from the database. */
   refresh: () => Promise<void>;
@@ -55,15 +60,27 @@ export function HouseholdProvider({
   const [refreshing, setRefreshing] = useState(false);
   const pending = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Held in a ref so the realtime handler always refetches the week that is
+  // on screen rather than the one that was selected when it subscribed.
+  const selected = useRef(initial.selectedWeekStart);
+
   const refresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      const next = await loadAll(createClient());
+      const next = await loadAll(createClient(), undefined, selected.current);
       if (next) setData(next);
     } finally {
       setRefreshing(false);
     }
   }, []);
+
+  const selectWeek = useCallback(
+    async (weekStart: string) => {
+      selected.current = weekStart;
+      await refresh();
+    },
+    [refresh],
+  );
 
   // Realtime is a refetch, not a merge. Two people editing the same thing at
   // once is rare, and the whole household is a small read.
@@ -101,6 +118,9 @@ export function HouseholdProvider({
       memberId,
       planningWeek: data.planningWeek,
       currentWeek: data.currentWeek,
+      selectedWeek: data.selectedWeek,
+      selectedWeekStart: data.selectedWeekStart,
+      selectWeek,
       today: data.today,
       refresh,
       refreshing,
@@ -112,7 +132,7 @@ export function HouseholdProvider({
           .filter((v) => v.recipeId === recipeId)
           .sort((a, b) => a.versionNo - b.versionNo),
     };
-  }, [data, memberId, refresh, refreshing]);
+  }, [data, memberId, refresh, refreshing, selectWeek]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

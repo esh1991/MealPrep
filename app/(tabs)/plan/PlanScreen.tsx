@@ -1,68 +1,107 @@
 "use client";
 
 import { useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { StepBar, StepFooter, type Step } from "@/components/Steps";
+import WeekPicker from "@/components/WeekPicker";
 import { useHousehold } from "@/lib/household/context";
-import { weekRange } from "@/lib/domain";
+import { gapCount, macroWeek, relativeWeek, totals } from "@/lib/domain";
 import EatingGrid from "./EatingGrid";
 import MenuView from "./MenuView";
 import MacrosView from "./MacrosView";
 
-const VIEWS = [
-  ["eating", "Who's eating"],
-  ["menu", "Menu"],
-  ["macros", "Macros"],
-] as const;
-
-type View = (typeof VIEWS)[number][0];
+type View = "eating" | "menu" | "macros";
 
 function isView(v: string | null): v is View {
   return v === "eating" || v === "menu" || v === "macros";
 }
 
 export default function PlanScreen() {
-  const { planningWeek } = useHousehold();
+  const household = useHousehold();
+  const { selectedWeek, selectedWeekStart, members, today } = household;
+  const router = useRouter();
   const params = useSearchParams();
-  const initial = params.get("view");
-  const [view, setView] = useState<View>(isView(initial) ? initial : "eating");
+  const [view, setView] = useState<View>(isView(params.get("view")) ? (params.get("view") as View) : "eating");
 
-  if (!planningWeek) {
+  if (!selectedWeek) {
     return (
       <>
         <header className="top">
-          <h1>Next week</h1>
+          <h1>Plan</h1>
         </header>
-        <p className="empty">
-          Next week isn&apos;t set up yet. Reload the page and it will be created.
-        </p>
+        <WeekPicker />
+        <p className="empty">Setting up that week…</p>
       </>
     );
   }
 
+  const count = totals(selectedWeek, members);
+  const gaps = gapCount(selectedWeek, members);
+  const planned = macroWeek(selectedWeek, household).tot.n > 0;
+
+  const steps: Step<View>[] = [
+    { key: "eating", label: "Who's eating", done: count.all > 0 },
+    { key: "menu", label: "Menu", done: count.all > 0 && gaps === 0 },
+    { key: "macros", label: "Balance", done: planned && gaps === 0 },
+  ];
+
   return (
     <>
       <header className="top">
-        <h1>Next week</h1>
-        <p className="sub">{weekRange(planningWeek.startDate)}</p>
+        <h1>Plan</h1>
+        <p className="sub">{relativeWeek(selectedWeekStart, today)}</p>
       </header>
 
-      <div className="segnav" role="tablist">
-        {VIEWS.map(([key, label]) => (
-          <button
-            key={key}
-            role="tab"
-            className={view === key ? "on" : ""}
-            aria-selected={view === key}
-            onClick={() => setView(key)}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <WeekPicker />
+      <StepBar steps={steps} current={view} onSelect={setView} />
 
-      {view === "eating" ? <EatingGrid week={planningWeek} /> : null}
-      {view === "menu" ? <MenuView week={planningWeek} onOpenMacros={() => setView("macros")} /> : null}
-      {view === "macros" ? <MacrosView week={planningWeek} onOpenMenu={() => setView("menu")} /> : null}
+      {view === "eating" ? (
+        <>
+          <EatingGrid week={selectedWeek} />
+          <StepFooter
+            hint={
+              count.all
+                ? `${count.all} meals to cover. Now choose what fills them.`
+                : "Nobody is eating at home this week. Tap the names above to add meals back."
+            }
+            action="Next: pick the menu"
+            onAction={() => setView("menu")}
+            tone={count.all ? "ok" : "warn"}
+          />
+        </>
+      ) : null}
+
+      {view === "menu" ? (
+        <>
+          <MenuView week={selectedWeek} onOpenMacros={() => setView("macros")} />
+          <StepFooter
+            hint={
+              gaps
+                ? `${gaps} ${gaps === 1 ? "meal still needs" : "meals still need"} a recipe. You can check the balance anyway.`
+                : "Every meal has a recipe. See how the week is leaning."
+            }
+            action="Next: check the balance"
+            onAction={() => setView("macros")}
+            tone={gaps ? "warn" : "ok"}
+          />
+        </>
+      ) : null}
+
+      {view === "macros" ? (
+        <>
+          <MacrosView week={selectedWeek} onOpenMenu={() => setView("menu")} />
+          <StepFooter
+            hint={
+              gaps
+                ? `${gaps} ${gaps === 1 ? "meal" : "meals"} without a recipe will be missing from the list.`
+                : "Happy with it? The shopping list is built from this menu."
+            }
+            action="Next: build the shopping list"
+            onAction={() => router.push("/list")}
+            tone={gaps ? "warn" : "ok"}
+          />
+        </>
+      ) : null}
     </>
   );
 }

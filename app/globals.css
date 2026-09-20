@@ -338,3 +338,26 @@ details.block p{margin:10px 0 4px;font-size:15px}
 .balance{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px}
 .balance h2{font-size:20px;letter-spacing:-.01em}
 .balance span{font-size:14px;color:var(--muted);font-variant-numeric:tabular-nums}
+
+/* which week is being planned */
+.weekpick{display:flex;align-items:center;justify-content:space-between;gap:8px;border:1.5px solid var(--line);border-radius:12px;background:var(--surface);padding:6px 6px;margin:0 0 16px}
+.weekpick button{width:44px;height:44px;border-radius:10px;font-size:26px;line-height:1;color:var(--pine);font-weight:600;flex-shrink:0}
+.weekpick button:disabled{color:var(--muted)}
+.weekpick span{display:flex;flex-direction:column;align-items:center;text-align:center;min-width:0;flex:1}
+.weekpick strong{font-size:16px;font-weight:700;line-height:1.2}
+.weekpick small{font-size:13px}
+
+/* numbered steps */
+.steps-bar{list-style:none;display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:0 0 20px;padding:0}
+.step{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;padding:4px 2px 0;text-align:center}
+.step-no{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:14px;font-weight:800;border:1.5px solid var(--line);color:var(--muted);background:var(--surface);font-variant-numeric:tabular-nums}
+.step-no svg{width:16px;height:16px}
+.step-label{font-size:12.5px;font-weight:650;color:var(--muted);line-height:1.2}
+.step.done .step-no{background:var(--pine-soft);border-color:var(--pine);color:var(--pine)}
+.step.done .step-label{color:var(--ink)}
+.step.on .step-no{background:var(--pine);border-color:var(--pine);color:var(--pine-ink)}
+.step.on .step-label{color:var(--ink)}
+
+/* the nudge onward at the end of a step */
+.step-footer{margin:26px 0 8px;padding-top:18px;border-top:1px solid var(--line);display:grid;gap:10px}
+.step-footer p{font-size:15px}

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import WeekPicker from "@/components/WeekPicker";
 import { useHousehold } from "@/lib/household/context";
 import { weekRange } from "@/lib/domain";
 import ShoppingList from "./ShoppingList";
@@ -21,18 +22,18 @@ function isView(v: string | null): v is View {
 }
 
 export default function ListScreen() {
-  const { planningWeek } = useHousehold();
+  const { selectedWeek } = useHousehold();
   const router = useRouter();
   const params = useSearchParams();
   const [view, setView] = useState<View>(isView(params.get("view")) ? (params.get("view") as View) : "buy");
 
-  if (!planningWeek) {
+  if (!selectedWeek) {
     return (
       <>
         <header className="top">
           <h1>List</h1>
         </header>
-        <p className="empty">Next week isn&apos;t set up yet. Open Plan first.</p>
+        <p className="empty">Setting up that week…</p>
       </>
     );
   }
@@ -41,8 +42,10 @@ export default function ListScreen() {
     <>
       <header className="top">
         <h1>List</h1>
-        <p className="sub">Groceries for {weekRange(planningWeek.startDate)}</p>
+        <p className="sub">Groceries for {weekRange(selectedWeek.startDate)}</p>
       </header>
+
+      <WeekPicker />
 
       <div className="segnav" role="tablist">
         {VIEWS.map(([key, label]) => (
@@ -59,10 +62,14 @@ export default function ListScreen() {
       </div>
 
       {view === "buy" ? (
-        <ShoppingList week={planningWeek} onOpenMenu={() => router.push("/plan?view=menu")} />
+        <ShoppingList
+          week={selectedWeek}
+          onOpenMenu={() => router.push("/plan?view=menu")}
+          onOpenPrep={() => router.push("/prep")}
+        />
       ) : null}
       {view === "check" ? (
-        <PantryCheck week={planningWeek} onOpenStaples={() => setView("staples")} />
+        <PantryCheck week={selectedWeek} onOpenStaples={() => setView("staples")} />
       ) : null}
       {view === "staples" ? <Staples /> : null}
     </>

@@ -80,3 +80,18 @@ export function weekRange(weekStart: string): string {
 export function prepDate(weekStart: string, prepDay: "Saturday" | "Sunday"): string {
   return addDays(weekStart, prepDay === "Sunday" ? -1 : -2);
 }
+
+/**
+ * How a week reads relative to today: "This week", "Next week", "In 3
+ * weeks", "Last week". Used by the week picker so the date range is not the
+ * only thing telling you where you are.
+ */
+export function relativeWeek(weekStart: string, today: string): string {
+  const here = currentWeekStart(today);
+  const diff = Math.round((parse(weekStart) - parse(here)) / (7 * MS_DAY));
+  if (diff === 0) return "This week";
+  if (diff === 1) return "Next week";
+  if (diff === -1) return "Last week";
+  if (diff > 1) return `In ${diff} weeks`;
+  return `${-diff} weeks ago`;
+}

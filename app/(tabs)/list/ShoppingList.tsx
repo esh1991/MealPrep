@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Check from "@/components/Check";
+import { StepFooter } from "@/components/Steps";
 import { useToast } from "@/components/Toast";
 import { useHousehold } from "@/lib/household/context";
 import { addExtra, removeExtra, setListChecked } from "@/lib/supabase/listMutations";
@@ -15,7 +16,15 @@ import {
   type Week,
 } from "@/lib/domain";
 
-export default function ShoppingList({ week, onOpenMenu }: { week: Week; onOpenMenu: () => void }) {
+export default function ShoppingList({
+  week,
+  onOpenMenu,
+  onOpenPrep,
+}: {
+  week: Week;
+  onOpenMenu: () => void;
+  onOpenPrep: () => void;
+}) {
   const household = useHousehold();
   const { members, memberId, refresh } = household;
   const toast = useToast();
@@ -172,6 +181,17 @@ export default function ShoppingList({ week, onOpenMenu }: { week: Week; onOpenM
         Copy pastes the list grouped by aisle, leaving out anything crossed off. Sending straight to
         Instacart is parked for now.
       </p>
+
+      <StepFooter
+        hint={
+          toBuy
+            ? `${toBuy} still to buy. Cross items off as they arrive.`
+            : "Everything is crossed off. Prep day is where you cook it."
+        }
+        action="Next: prep day"
+        onAction={onOpenPrep}
+        tone={toBuy ? "warn" : "ok"}
+      />
     </>
   );
 }

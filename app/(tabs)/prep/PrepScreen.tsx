@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Check from "@/components/Check";
+import WeekPicker from "@/components/WeekPicker";
 import { useHousehold } from "@/lib/household/context";
 import { setPrepDone } from "@/lib/supabase/weekMutations";
 import {
@@ -26,37 +27,39 @@ const METHODS: { k: Method; n: string; note: string }[] = [
 
 export default function PrepScreen() {
   const household = useHousehold();
-  const { planningWeek, settings, refresh } = household;
+  const { selectedWeek, settings, refresh } = household;
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
   const header = (
     <header className="top">
       <h1>Prep day</h1>
-      {planningWeek ? (
+      {selectedWeek ? (
         <p className="sub">
-          {settings.prepDay} {shortDate(prepDate(planningWeek.startDate, settings.prepDay))}, for{" "}
-          {weekRange(planningWeek.startDate)}
+          {settings.prepDay} {shortDate(prepDate(selectedWeek.startDate, settings.prepDay))}, for{" "}
+          {weekRange(selectedWeek.startDate)}
         </p>
       ) : null}
     </header>
   );
 
-  if (!planningWeek) {
+  if (!selectedWeek) {
     return (
       <>
         {header}
-        <p className="empty">Next week isn&apos;t set up yet. Open Plan first.</p>
+        <WeekPicker />
+        <p className="empty">Setting up that week…</p>
       </>
     );
   }
 
-  const all = batches(planningWeek, household);
+  const all = batches(selectedWeek, household);
   if (!all.length) {
     return (
       <>
         {header}
-        <p className="empty">Nothing to prep yet.</p>
+        <WeekPicker />
+        <p className="empty">Nothing to prep yet. Pick a menu and the batches appear here.</p>
         <div className="actions">
           <button className="btn" onClick={() => router.push("/plan?view=menu")}>
             Pick the menu
@@ -66,13 +69,13 @@ export default function PrepScreen() {
     );
   }
 
-  const summary = prepSummary(planningWeek, household);
+  const summary = prepSummary(selectedWeek, household);
 
   async function toggle(batch: Batch, done: boolean) {
-    if (!planningWeek) return;
+    if (!selectedWeek) return;
     setBusy(true);
     try {
-      await setPrepDone(planningWeek.id, batch.pick.id, done);
+      await setPrepDone(selectedWeek.id, batch.pick.id, done);
       await refresh();
     } finally {
       setBusy(false);
@@ -82,6 +85,8 @@ export default function PrepScreen() {
   return (
     <>
       {header}
+
+      <WeekPicker />
 
       <div
         className="meter"
@@ -117,7 +122,7 @@ export default function PrepScreen() {
             <p>{method.note}</p>
             <ul className="batches">
               {list.map((b) => {
-                const done = !!planningWeek.prepDone[b.pick.id];
+                const done = !!selectedWeek.prepDone[b.pick.id];
                 return (
                   <li className={`batch ${done ? "done" : ""}`} key={b.pick.id}>
                     <button

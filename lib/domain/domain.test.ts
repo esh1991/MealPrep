@@ -21,6 +21,7 @@ import {
   planningWeekStart,
   prepDate,
   prepSummary,
+  relativeWeek,
   roundQ,
   slotKey,
   splitEvenly,
@@ -335,6 +336,13 @@ describe("week boundaries", () => {
   it("plans tomorrow's week from a Sunday", () => {
     expect(currentWeekStart("2026-09-20")).toBe("2026-09-14");
     expect(planningWeekStart("2026-09-20")).toBe("2026-09-21");
+  });
+  it("names a week relative to today", () => {
+    expect(relativeWeek("2026-09-14", "2026-09-15")).toBe("This week");
+    expect(relativeWeek("2026-09-21", "2026-09-15")).toBe("Next week");
+    expect(relativeWeek("2026-09-07", "2026-09-15")).toBe("Last week");
+    expect(relativeWeek("2026-10-05", "2026-09-15")).toBe("In 3 weeks");
+    expect(relativeWeek("2026-08-31", "2026-09-15")).toBe("2 weeks ago");
   });
   it("labels ranges and prep dates", () => {
     expect(weekRange("2026-09-21")).toBe("Sep 21 to 25");

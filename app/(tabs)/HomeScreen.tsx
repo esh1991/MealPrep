@@ -27,6 +27,7 @@ import {
   mealName,
   mealPlural,
   prepSummary,
+  relativeWeek,
   slotKey,
   sortedMembers,
   splitOf,
@@ -42,14 +43,14 @@ const n0 = (v: number) => Number(v || 0).toLocaleString("en-US");
 
 export default function HomeScreen() {
   const household = useHousehold();
-  const { members, settings, currentWeek, planningWeek, today } = household;
+  const { members, settings, currentWeek, selectedWeek, selectedWeekStart, today } = household;
   const router = useRouter();
   const [sheet, setSheet] = useState<null | "recipe" | "list">(null);
 
   // Show whichever week actually has food in it. This week is only a real
   // week once something was planned for it, which is never at the start.
   const thisWeekIsLive = !!currentWeek?.picks.length;
-  const focus = thisWeekIsLive ? currentWeek : planningWeek;
+  const focus = thisWeekIsLive ? currentWeek : selectedWeek;
   const todayDay = dayOf(today);
 
   if (!focus) {
@@ -87,7 +88,7 @@ export default function HomeScreen() {
         <button className="btn" onClick={() => setSheet("recipe")}>
           Add a recipe
         </button>
-        <button className="btn ghost" onClick={() => setSheet("list")} disabled={!planningWeek}>
+        <button className="btn ghost" onClick={() => setSheet("list")} disabled={!selectedWeek}>
           Add to list
         </button>
       </div>
@@ -122,12 +123,14 @@ export default function HomeScreen() {
         <FreezerTonight week={focus} today={today} onOpenPrep={() => router.push("/prep")} />
       ) : null}
 
-      {planningWeek && thisWeekIsLive ? <NextWeek week={planningWeek} /> : null}
-      {!thisWeekIsLive && planningWeek ? <PlanningRows week={planningWeek} /> : null}
+      {selectedWeek && thisWeekIsLive ? (
+        <NextWeek week={selectedWeek} label={relativeWeek(selectedWeekStart, today)} />
+      ) : null}
+      {!thisWeekIsLive && selectedWeek ? <PlanningRows week={selectedWeek} /> : null}
 
       {sheet === "recipe" ? <AddRecipeSheet onClose={() => setSheet(null)} /> : null}
-      {sheet === "list" && planningWeek ? (
-        <AddToListSheet week={planningWeek} onClose={() => setSheet(null)} />
+      {sheet === "list" && selectedWeek ? (
+        <AddToListSheet week={selectedWeek} onClose={() => setSheet(null)} />
       ) : null}
     </>
   );
@@ -444,11 +447,13 @@ function HubRows({ rows }: { rows: ReturnType<typeof rowsFor> }) {
 }
 
 /** The planning hub when this week is the one on screen. */
-function NextWeek({ week }: { week: Week }) {
+function NextWeek({ week, label }: { week: Week; label: string }) {
   const household = useHousehold();
   return (
     <section className="section">
-      <h2>Next week, {weekRange(week.startDate)}</h2>
+      <h2>
+        {label}, {weekRange(week.startDate)}
+      </h2>
       <HubRows rows={rowsFor(week, household)} />
     </section>
   );
