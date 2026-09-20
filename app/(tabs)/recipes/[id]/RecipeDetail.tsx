@@ -7,9 +7,9 @@ import { LabelledStepper } from "@/components/Stepper";
 import { useToast } from "@/components/Toast";
 import { useHousehold } from "@/lib/household/context";
 import { clearGuesses, setRating } from "@/lib/supabase/mutations";
-import { addPick, setSnacks } from "@/lib/supabase/weekMutations";
-import { formatQty, mealName, mealPlural, picksFor, type Rating } from "@/lib/domain";
+import { formatQty, mealName, type Rating } from "@/lib/domain";
 import TweakSheet from "./TweakSheet";
+import AddToWeekSheet from "./AddToWeekSheet";
 
 const RATINGS: [Rating, string][] = [
   ["keeper", "Keeper"],
@@ -19,7 +19,7 @@ const RATINGS: [Rating, string][] = [
 
 export default function RecipeDetail({ recipeId }: { recipeId: string }) {
   const toast = useToast();
-  const { recipeById, currentVersion, versionsOf, ingredients, members, planningWeek, refresh } =
+  const { recipeById, currentVersion, versionsOf, ingredients, planningWeek, refresh } =
     useHousehold();
   const [servings, setServings] = useState<number | null>(null);
   const [tweaking, setTweaking] = useState(false);
@@ -59,28 +59,6 @@ export default function RecipeDetail({ recipeId }: { recipeId: string }) {
     toast("Guesses cleared");
   }
 
-  /** Covers whatever is still uncovered for this meal next week (REC-14). */
-  async function addToNextWeek() {
-    if (!recipe || !version || !planningWeek) return;
-    if (picksFor(planningWeek, recipe.type).some((p) => p.recipeId === recipe.id)) {
-      toast(`Already in next week's ${mealPlural(recipe.type)}`);
-      return;
-    }
-    setAdding(true);
-    try {
-      // A snack can only be planned once the snack column is on.
-      const week =
-        recipe.type === "s" && !planningWeek.snacksEnabled
-          ? (await setSnacks(planningWeek.id, true), { ...planningWeek, snacksEnabled: true })
-          : planningWeek;
-      await addPick(week, members, recipe.type, recipe.id, version.id);
-      await refresh();
-      toast(`Added to next week's ${mealPlural(recipe.type)}`);
-    } finally {
-      setAdding(false);
-    }
-  }
-
   return (
     <>
       <div className="back">
@@ -90,7 +68,7 @@ export default function RecipeDetail({ recipeId }: { recipeId: string }) {
       </div>
 
       <header className="top recipe-top">
-        <span className="tape">{mealName(recipe.type)}</span>
+        <span className="tape">Usually {mealName(recipe.type).toLowerCase()}</span>
         <h1>{recipe.name}</h1>
       </header>
 
@@ -199,14 +177,14 @@ export default function RecipeDetail({ recipeId }: { recipeId: string }) {
         <button className="btn" onClick={() => setTweaking(true)}>
           Save a tweak
         </button>
-        <button
-          className="btn ghost"
-          onClick={() => void addToNextWeek()}
-          disabled={adding || !planningWeek}
-        >
-          {adding ? "Adding…" : "Add to next week"}
+        <button className="btn ghost" onClick={() => setAdding(true)} disabled={!planningWeek}>
+          Add to next week
         </button>
       </div>
+
+      {adding && version ? (
+        <AddToWeekSheet recipe={recipe} version={version} onClose={() => setAdding(false)} />
+      ) : null}
 
       {tweaking ? (
         <TweakSheet

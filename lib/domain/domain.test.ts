@@ -230,11 +230,19 @@ describe("macros (PRD 7.4)", () => {
     const out = { ...mw.per[SHIVA.id], Mon: { cal: 0, protein: 0, carbs: 0, fat: 0, n: 0 } };
     expect(dailyAverage(out).cal).toBeGreaterThan(avg.cal - 200);
   });
-  it("suggests swapping the highest-carb pick for a lower-carb recipe of the same meal", () => {
+  it("suggests swapping the highest-carb pick for the best lower-carb recipe", () => {
     const tip = swapTip(w, ctx);
+    // Chicken tikka rice bowls carry the most carbs on the menu at 52 g.
     expect(tip?.from.recipe.id).toBe("l1");
-    expect(tip?.to.recipe.id).toBe("l2");
     expect(tip?.meal).toBe("l");
+    // Egg bite muffins win on protein minus carbs (24 - 6) even though they
+    // are usually a breakfast: any recipe can fill any meal.
+    expect(tip?.to.recipe.id).toBe("b1");
+  });
+  it("will not suggest a recipe already on that meal's menu", () => {
+    const onMenu = new Set([...w.picks.filter((p) => p.meal === "l").map((p) => p.recipeId)]);
+    const tip = swapTip(w, ctx);
+    expect(onMenu.has(tip!.to.recipe.id)).toBe(false);
   });
 });
 

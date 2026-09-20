@@ -54,7 +54,7 @@ export default function RecipeLibrary() {
         />
       </div>
 
-      <div className="chips">
+      <div className="chips" role="group" aria-label="Filter by the meal a recipe is usually eaten at">
         {([["all", "All"], ...MEALS.map((m) => [m.k, m.n] as const)] as [Filter, string][]).map(
           ([k, label]) => (
             <button

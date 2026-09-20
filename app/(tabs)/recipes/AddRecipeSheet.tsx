@@ -54,7 +54,7 @@ export default function AddRecipeSheet({ onClose }: { onClose: () => void }) {
             autoFocus
           />
         </div>
-        <span className="flabel">Meal</span>
+        <span className="flabel">Usually eaten at</span>
         <div className="segs">
           {MEALS.map((m) => (
             <button
@@ -67,6 +67,9 @@ export default function AddRecipeSheet({ onClose }: { onClose: () => void }) {
             </button>
           ))}
         </div>
+        <p className="fine">
+          Just a starting point for sorting and searching. Any recipe can go in any meal.
+        </p>
         <p className="fine">Ingredients and macros come next, with Save a tweak.</p>
         {error ? <p className="err">{error}</p> : null}
         <div className="actions">

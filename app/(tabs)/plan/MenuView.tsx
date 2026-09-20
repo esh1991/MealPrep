@@ -133,7 +133,15 @@ function PickerSheet({
 
   const already = new Set(picksFor(week, meal).map((p) => p.recipeId));
   const c = coverage(week, meal, members);
-  const options = recipes.filter((r) => r.type === meal);
+
+  // Any recipe can fill any meal. The ones usually eaten at this meal come
+  // first so the common case stays a short scroll.
+  const usual = recipes.filter((r) => r.type === meal);
+  const rest = recipes.filter((r) => r.type !== meal);
+  const groups = [
+    { key: "usual", label: `Usually ${mealName(meal).toLowerCase()}`, items: usual },
+    { key: "rest", label: "Anything else", items: rest },
+  ].filter((g) => g.items.length);
 
   async function pick(recipeId: string, versionId: string, name: string) {
     setBusy(true);
@@ -156,34 +164,39 @@ function PickerSheet({
           : "Everything is covered, so portions will be split evenly."}
       </p>
 
-      {options.length ? (
-        <ul className="rows">
-          {options.map((r) => {
-            const version = currentVersion(r);
-            const has = already.has(r.id);
-            return (
-              <li key={r.id}>
-                <button
-                  className="row"
-                  disabled={has || busy || !version}
-                  onClick={() => version && void pick(r.id, version.id, r.name)}
-                >
-                  <span className="row-main">
-                    <span className="row-title">{r.name}</span>
-                    <span className="row-meta">
-                      <MacroLine macros={version} />
-                    </span>
-                  </span>
-                  <span className={`rate ${has ? "" : r.rating}`}>
-                    {has ? "Added" : RATING_LABEL[r.rating]}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+      {groups.length ? (
+        groups.map((group) => (
+          <div key={group.key}>
+            <span className="flabel">{group.label}</span>
+            <ul className="rows">
+              {group.items.map((r) => {
+                const version = currentVersion(r);
+                const has = already.has(r.id);
+                return (
+                  <li key={r.id}>
+                    <button
+                      className="row"
+                      disabled={has || busy || !version}
+                      onClick={() => version && void pick(r.id, version.id, r.name)}
+                    >
+                      <span className="row-main">
+                        <span className="row-title">{r.name}</span>
+                        <span className="row-meta">
+                          <MacroLine macros={version} />
+                        </span>
+                      </span>
+                      <span className={`rate ${has ? "" : r.rating}`}>
+                        {has ? "Added" : RATING_LABEL[r.rating]}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))
       ) : (
-        <p className="empty">No {mealPlural(meal)} in the library yet.</p>
+        <p className="empty">No recipes in the library yet.</p>
       )}
 
       <Link className="btn ghost" href="/recipes">

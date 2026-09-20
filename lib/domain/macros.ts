@@ -88,8 +88,12 @@ export interface SwapTip {
 }
 
 /**
- * The chosen recipe with the most carbs, and a lower-carb recipe of the same
- * meal type that is not on the menu, ranked by protein minus carbs (MAC-5).
+ * The chosen recipe with the most carbs, and a lower-carb recipe to put in
+ * its place, ranked by protein minus carbs (MAC-5).
+ *
+ * Any recipe can fill any meal, so the alternative is not restricted to the
+ * meal type the replaced recipe is usually eaten at. Only recipes already on
+ * that meal's menu are excluded.
  */
 export function swapTip(week: Week, ctx: Context): SwapTip | null {
   const picked: { meal: MealType; pickId: string; recipe: Recipe; version: RecipeVersion }[] = [];
@@ -104,7 +108,7 @@ export function swapTip(week: Week, ctx: Context): SwapTip | null {
   const top = picked.reduce((a, b) => (b.version.carbs > a.version.carbs ? b : a));
   const onMenu = new Set(picksFor(week, top.meal).map((p) => p.recipeId));
   const alts = ctx.recipes
-    .filter((r) => r.type === top.meal && !onMenu.has(r.id))
+    .filter((r) => !onMenu.has(r.id))
     .map((r) => ({ recipe: r, version: currentVersion(ctx, r) }))
     .filter((x): x is { recipe: Recipe; version: RecipeVersion } => !!x.version && !!x.version.cal && x.version.carbs < top.version.carbs)
     .sort((a, b) => b.version.protein - b.version.carbs - (a.version.protein - a.version.carbs));
