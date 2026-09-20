@@ -57,7 +57,17 @@ At https://console.cloud.google.com/auth/clients, open the MealPrep web client a
 
 **Authorized redirect URIs** is empty. MealPrep signs in without a redirect, the same way the other apps do.
 
-If you add or change an origin, Google can take a few minutes to apply it. A "redirect_uri_mismatch" or "origin is not allowed" error usually means an origin is missing or has a typo, and the URL must match exactly, including `https://` and no trailing slash.
+If you add or change an origin, Google can take a few minutes to apply it. The URL must match exactly, including `https://` and with no trailing slash.
+
+### Error 400: origin_mismatch
+
+The address you are signing in from is not on the list above. Google does not say which address it saw, so open the login page and expand **Trouble signing in?**, which prints the exact value to register.
+
+The usual cause is a Vercel preview deployment. Every push gets its own address, like `meal-prep-a1b2c3-esh1991.vercel.app`, and Google has no wildcards, so those can never all be registered. Sign in on the main address instead:
+
+- `https://meal-prep-dun-eta.vercel.app`
+
+If you do want a preview build to be signable-in, add that specific address to the origins list, and expect to repeat it next push.
 
 ### About the client secret
 

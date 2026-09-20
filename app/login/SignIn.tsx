@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
@@ -27,6 +27,12 @@ declare global {
 
 const GSI_SRC = "https://accounts.google.com/gsi/client";
 
+// The address never changes while the page is open, so there is nothing to
+// subscribe to. The server snapshot is empty, which keeps hydration honest.
+const noSubscribe = () => () => {};
+const readOrigin = () => window.location.origin;
+const noOrigin = () => "";
+
 /**
  * Google wants the hashed nonce, Supabase wants the raw one. Swapping them
  * fails with an unhelpful message, so they are produced together here.
@@ -50,6 +56,9 @@ export default function SignIn({ clientId }: { clientId: string | null }) {
   const [showEmail, setShowEmail] = useState(false);
   const [email, setEmail] = useState("");
   const [emailSent, setEmailSent] = useState(false);
+  // Google reports an origin mismatch on its own error page without saying
+  // which origin it saw. Showing it here turns that into something fixable.
+  const origin = useSyncExternalStore(noSubscribe, readOrigin, noOrigin);
 
   const signInWithGoogle = useCallback(
     async (credential: string, nonce: string) => {
@@ -185,6 +194,25 @@ export default function SignIn({ clientId }: { clientId: string | null }) {
       )}
 
       {error ? <p className="err">{error}</p> : null}
+
+      {origin ? (
+        <details className="block" style={{ marginTop: 24 }}>
+          <summary>Trouble signing in?</summary>
+          <p>
+            If Google says <strong>origin_mismatch</strong>, this exact address is missing from the
+            sign-in client&apos;s allowed list:
+          </p>
+          <p>
+            <code>{origin}</code>
+          </p>
+          <p className="muted">
+            Add it under Authorized JavaScript origins at
+            console.cloud.google.com/auth/clients, in the MealPrep project. Vercel gives every
+            deployment its own address and Google cannot match them with a wildcard, so sign in on
+            the main address rather than a preview one.
+          </p>
+        </details>
+      ) : null}
     </>
   );
 }
