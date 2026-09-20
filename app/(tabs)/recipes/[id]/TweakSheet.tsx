@@ -5,15 +5,16 @@ import Sheet from "@/components/Sheet";
 import { LabelledStepper } from "@/components/Stepper";
 import { useToast } from "@/components/Toast";
 import { useHousehold } from "@/lib/household/context";
-import { copySteps, saveTweak, type TweakIngredient } from "@/lib/supabase/mutations";
+import { saveTweak, type TweakIngredient } from "@/lib/supabase/mutations";
 import {
   STEP,
+  UNITS,
   diffVersions,
   formatQty,
-  guessFoodAisle,
   type Recipe,
   type RecipeVersion,
   type Unit,
+  type VersionDraft,
 } from "@/lib/domain";
 
 const MACRO_FIELDS = [
@@ -41,14 +42,24 @@ export default function TweakSheet({
 
   const nameOf = (id: string) => ingredients.find((i) => i.id === id)?.name ?? "Ingredient";
 
-  const [draft, setDraft] = useState<TweakIngredient[]>(() =>
-    version.ingredients.map((vi) => ({
+  const before: VersionDraft = {
+    baseServings: version.baseServings,
+    ingredients: version.ingredients.map((vi) => ({
       ingredientId: vi.ingredientId,
       name: nameOf(vi.ingredientId),
       qty: vi.qty,
       unit: vi.unit,
     })),
-  );
+    steps: version.steps,
+    cal: version.cal,
+    protein: version.protein,
+    carbs: version.carbs,
+    fat: version.fat,
+  };
+
+  const [servings, setServings] = useState(version.baseServings);
+  const [draft, setDraft] = useState<TweakIngredient[]>(before.ingredients);
+  const [stepsText, setStepsText] = useState(version.steps.join("\n"));
   const [macros, setMacros] = useState<Record<MacroKey, number>>({
     cal: version.cal,
     protein: version.protein,
@@ -60,28 +71,28 @@ export default function TweakSheet({
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const before = {
-    ingredients: version.ingredients.map((vi) => ({
-      ingredientId: vi.ingredientId,
-      name: nameOf(vi.ingredientId),
-      qty: vi.qty,
-      unit: vi.unit,
-    })),
-    cal: version.cal,
-    protein: version.protein,
-    carbs: version.carbs,
-    fat: version.fat,
-  };
-  const changes = diffVersions(before, { ingredients: draft, ...macros });
+  // One step per line keeps editing usable on a phone.
+  const steps = stepsText
+    .split("\n")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const after: VersionDraft = { baseServings: servings, ingredients: draft, steps, ...macros };
+  const changes = diffVersions(before, after);
 
   function stepQty(index: number, direction: 1 | -1) {
     setDraft((prev) =>
       prev.map((x, i) => {
         if (i !== index) return x;
-        const step = STEP[x.unit] ?? 1;
-        return { ...x, qty: Math.max(0, Math.round((x.qty + direction * step) * 100) / 100) };
+        const size = STEP[x.unit] ?? 1;
+        return { ...x, qty: Math.max(0, Math.round((x.qty + direction * size) * 100) / 100) };
       }),
     );
+    setError("");
+  }
+
+  function changeUnit(index: number, unit: Unit) {
+    setDraft((prev) => prev.map((x, i) => (i === index ? { ...x, unit } : x)));
     setError("");
   }
 
@@ -91,38 +102,31 @@ export default function TweakSheet({
     const existing = ingredients.find((i) => i.name.toLowerCase() === name.toLowerCase());
     setDraft((prev) => [
       ...prev,
-      {
-        ingredientId: existing?.id ?? "",
-        name: existing?.name ?? name,
-        qty: 1,
-        unit: "count" as Unit,
-      },
+      { ingredientId: existing?.id ?? "", name: existing?.name ?? name, qty: 1, unit: "count" },
     ]);
     setNewName("");
-    // The aisle is guessed when the ingredient is created on save.
-    void guessFoodAisle(name);
   }
 
   async function save() {
     if (!changes.length && !note.trim()) {
-      setError("Change a quantity, a macro or write a note first.");
+      setError("Change something, or write a note about why this version exists.");
       return;
     }
     setSaving(true);
     setError("");
     try {
-      const newVersionId = await saveTweak({
+      await saveTweak({
         householdId,
         recipeId: recipe.id,
         memberId,
         nextVersionNo,
-        baseServings: version.baseServings,
+        baseServings: servings,
         ingredients: draft,
+        steps,
         ...macros,
         note: note.trim() || "Adjusted the recipe.",
         changes,
       });
-      await copySteps(version.id, newVersionId);
       await refresh();
       onClose();
       toast(`Saved as version ${nextVersionNo}`);
@@ -140,16 +144,45 @@ export default function TweakSheet({
         planned keeps the version it picked.
       </p>
 
+      <div className="switchrow" style={{ marginTop: 14 }}>
+        <div>
+          <strong>Makes</strong>
+          <small>What one batch of these quantities yields</small>
+        </div>
+        <LabelledStepper
+          label="servings the recipe makes"
+          display={`${servings}`}
+          onDown={() => setServings(Math.max(1, servings - 1))}
+          onUp={() => setServings(servings + 1)}
+        />
+      </div>
+
+      <span className="flabel">Ingredients</span>
       {draft.length ? (
         <ul className="edit">
           {draft.map((x, i) => {
-            const original = version.ingredients.find(
-              (vi) => vi.ingredientId === x.ingredientId && vi.unit === x.unit,
-            );
-            const changed = !original || original.qty !== x.qty;
+            const original = before.ingredients.find((o) => o.ingredientId === x.ingredientId);
+            const changed = !original || original.qty !== x.qty || original.unit !== x.unit;
             return (
-              <li key={`${x.ingredientId || x.name}-${i}`} className={`${changed ? "changed" : ""} ${x.qty === 0 ? "gone" : ""}`}>
-                <span>{x.name}</span>
+              <li
+                key={`${x.ingredientId || x.name}-${i}`}
+                className={`${changed ? "changed" : ""} ${x.qty === 0 ? "gone" : ""}`}
+              >
+                <span>
+                  {x.name}
+                  <select
+                    value={x.unit}
+                    onChange={(e) => changeUnit(i, e.target.value as Unit)}
+                    aria-label={`Unit for ${x.name}`}
+                    style={{ marginTop: 4, font: "inherit", fontSize: 13 }}
+                  >
+                    {UNITS.map((u) => (
+                      <option key={u} value={u}>
+                        {u}
+                      </option>
+                    ))}
+                  </select>
+                </span>
                 <LabelledStepper
                   label={x.name}
                   display={x.qty === 0 ? "none" : formatQty(x.qty, x.unit)}
@@ -182,6 +215,19 @@ export default function TweakSheet({
           Add
         </button>
       </div>
+      <p className="fine">Step an ingredient down to none to take it out.</p>
+
+      <div className="field">
+        <label htmlFor="tweak-steps">Steps</label>
+        <textarea
+          id="tweak-steps"
+          rows={8}
+          placeholder={"One step per line.\nHeat the oven to 425°F.\nRoast 20 minutes."}
+          value={stepsText}
+          onChange={(e) => setStepsText(e.target.value)}
+        />
+      </div>
+      <p className="fine">One step per line. Blank lines are ignored.</p>
 
       <span className="flabel">Macros per serving</span>
       <div className="mgrid">
@@ -194,7 +240,10 @@ export default function TweakSheet({
               min={0}
               value={macros[key]}
               onChange={(e) =>
-                setMacros((prev) => ({ ...prev, [key]: Math.max(0, Math.round(Number(e.target.value) || 0)) }))
+                setMacros((prev) => ({
+                  ...prev,
+                  [key]: Math.max(0, Math.round(Number(e.target.value) || 0)),
+                }))
               }
             />
           </label>

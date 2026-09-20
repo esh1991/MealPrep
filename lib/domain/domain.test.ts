@@ -247,21 +247,24 @@ describe("macros (PRD 7.4)", () => {
 });
 
 describe("tweak change list (REC-6)", () => {
+  const base = { baseServings: 4, steps: ["Cook it."], cal: 470, protein: 42, carbs: 52, fat: 10 };
+
   it("describes quantity changes, additions, removals and macro edits", () => {
     const prev = {
+      ...base,
       ingredients: [
         { ingredientId: "garlic", name: "Garlic", qty: 3, unit: "clove" as const },
         { ingredientId: "feta", name: "Feta", qty: 3, unit: "oz" as const },
       ],
-      cal: 470, protein: 42, carbs: 52, fat: 10,
     };
     const next = {
+      ...base,
       ingredients: [
         { ingredientId: "garlic", name: "Garlic", qty: 6, unit: "clove" as const },
         { ingredientId: "feta", name: "Feta", qty: 0, unit: "oz" as const },
         { ingredientId: "zucchini", name: "Zucchini", qty: 2, unit: "count" as const },
       ],
-      cal: 450, protein: 42, carbs: 48, fat: 10,
+      cal: 450, carbs: 48,
     };
     expect(diffVersions(prev, next)).toEqual([
       "Garlic 3 cloves to 6 cloves",
@@ -270,8 +273,35 @@ describe("tweak change list (REC-6)", () => {
       "Macros now 450 cal, P 42 C 48 F 10",
     ]);
   });
+
+  it("reads a unit change as one change, not a removal and an addition", () => {
+    const prev = { ...base, ingredients: [{ ingredientId: "rice", name: "Rice", qty: 2, unit: "cup" as const }] };
+    const next = { ...base, ingredients: [{ ingredientId: "rice", name: "Rice", qty: 12, unit: "oz" as const }] };
+    expect(diffVersions(prev, next)).toEqual(["Rice 2 cups to 12 oz"]);
+  });
+
+  it("notes a change of yield and of steps", () => {
+    const prev = { ...base, ingredients: [] };
+    const next = { ...base, ingredients: [], baseServings: 6, steps: ["Cook it well.", "Rest it."] };
+    expect(diffVersions(prev, next)).toEqual([
+      "Now makes 6 servings instead of 4",
+      "Reworded the steps",
+    ]);
+  });
+
+  it("distinguishes writing steps for the first time from rewording them", () => {
+    const empty = { ...base, ingredients: [], steps: [] };
+    expect(diffVersions(empty, { ...empty, steps: ["Do the thing."] })).toEqual(["Wrote the steps"]);
+    expect(diffVersions({ ...empty, steps: ["Do the thing."] }, empty)).toEqual(["Cleared the steps"]);
+  });
+
+  it("ignores whitespace-only differences in steps", () => {
+    const prev = { ...base, ingredients: [], steps: ["Cook it."] };
+    expect(diffVersions(prev, { ...prev, steps: ["  Cook it.  "] })).toEqual([]);
+  });
+
   it("returns nothing when nothing changed", () => {
-    const v = { ingredients: [{ ingredientId: "a", name: "A", qty: 1, unit: "cup" as const }], cal: 1, protein: 1, carbs: 1, fat: 1 };
+    const v = { ...base, ingredients: [{ ingredientId: "a", name: "A", qty: 1, unit: "cup" as const }] };
     expect(diffVersions(v, v)).toEqual([]);
   });
 });

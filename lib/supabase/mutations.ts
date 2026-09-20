@@ -54,6 +54,7 @@ export interface TweakInput {
   nextVersionNo: number;
   baseServings: number;
   ingredients: TweakIngredient[];
+  steps: string[];
   cal: number;
   protein: number;
   carbs: number;
@@ -85,7 +86,7 @@ export async function saveTweak(input: TweakInput): Promise<string> {
       protein_g: input.protein,
       carbs_g: input.carbs,
       fat_g: input.fat,
-      steps: [],
+      steps: input.steps,
       note: input.note,
       changes: input.changes,
       created_by: input.memberId,
@@ -114,15 +115,6 @@ export async function saveTweak(input: TweakInput): Promise<string> {
   if (pointError) throw pointError;
 
   return version.id as string;
-}
-
-/** Carries the steps over from the previous version, which a tweak does not edit. */
-export async function copySteps(fromVersionId: string, toVersionId: string) {
-  const supabase = createClient();
-  const { data } = await supabase.from("recipe_versions").select("steps").eq("id", fromVersionId).single();
-  if (data?.steps?.length) {
-    await supabase.from("recipe_versions").update({ steps: data.steps }).eq("id", toVersionId);
-  }
 }
 
 /** Creates a bare recipe. Ingredients and macros are filled in with Save a tweak. */
@@ -164,4 +156,20 @@ export async function createRecipe(input: {
 
   await supabase.from("recipes").update({ current_version_id: version.id }).eq("id", recipe.id);
   return recipe.id as string;
+}
+
+/**
+ * Recipe-level details: the name, the meal it is usually eaten at, and where
+ * it came from. These are not versioned, because they describe the recipe
+ * rather than the version of it you cook.
+ */
+export async function updateRecipeDetails(
+  recipeId: string,
+  details: { name: string; type: MealType; sourceRef: string },
+) {
+  const { error } = await createClient()
+    .from("recipes")
+    .update({ name: details.name.trim(), type: details.type, source_ref: details.sourceRef.trim() })
+    .eq("id", recipeId);
+  if (error) throw error;
 }

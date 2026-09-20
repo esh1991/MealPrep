@@ -10,6 +10,7 @@ import { clearGuesses, setRating } from "@/lib/supabase/mutations";
 import { formatQty, mealName, type Rating } from "@/lib/domain";
 import TweakSheet from "./TweakSheet";
 import AddToWeekSheet from "./AddToWeekSheet";
+import EditRecipeSheet from "./EditRecipeSheet";
 
 const RATINGS: [Rating, string][] = [
   ["keeper", "Keeper"],
@@ -24,6 +25,7 @@ export default function RecipeDetail({ recipeId }: { recipeId: string }) {
   const [servings, setServings] = useState<number | null>(null);
   const [tweaking, setTweaking] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   const recipe = recipeById(recipeId);
   const version = recipe ? currentVersion(recipe) : undefined;
@@ -70,6 +72,9 @@ export default function RecipeDetail({ recipeId }: { recipeId: string }) {
       <header className="top recipe-top">
         <span className="tape">Usually {mealName(recipe.type).toLowerCase()}</span>
         <h1>{recipe.name}</h1>
+        <button className="link" onClick={() => setEditing(true)}>
+          Edit name, meal and source
+        </button>
       </header>
 
       <div className="segs rating" role="group" aria-label="How it worked for us">
@@ -181,6 +186,8 @@ export default function RecipeDetail({ recipeId }: { recipeId: string }) {
           Add to next week
         </button>
       </div>
+
+      {editing ? <EditRecipeSheet recipe={recipe} onClose={() => setEditing(false)} /> : null}
 
       {adding && version ? (
         <AddToWeekSheet recipe={recipe} version={version} onClose={() => setAdding(false)} />
