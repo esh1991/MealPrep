@@ -130,3 +130,11 @@ export async function swapPick(pickId: string, recipeId: string, versionId: stri
     .eq("id", pickId);
   if (error) throw error;
 }
+
+/** Ticking a batch off on prep day. */
+export async function setPrepDone(weekId: string, pickId: string, done: boolean) {
+  const { error } = await createClient()
+    .from("week_prep_status")
+    .upsert({ week_id: weekId, pick_id: pickId, done }, { onConflict: "week_id,pick_id" });
+  if (error) throw error;
+}
