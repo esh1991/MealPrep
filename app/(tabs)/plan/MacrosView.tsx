@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import { MacroBar } from "@/components/Macros";
+import ByDayChart from "@/components/ByDayChart";
 import { useToast } from "@/components/Toast";
 import { useHousehold } from "@/lib/household/context";
 import { swapPick } from "@/lib/supabase/weekMutations";
 import {
-  DAYS,
   dailyAverage,
   macroWeek,
   sortedMembers,
@@ -41,7 +41,6 @@ export default function MacrosView({ week, onOpenMenu }: { week: Week; onOpenMen
   const split = splitOf(mw.tot);
   const label = weekLabel(split, settings.macroThresholds);
   const people = sortedMembers(members);
-  const maxCal = Math.max(1, ...DAYS.flatMap((d) => people.map((p) => mw.per[p.id][d].cal)));
   const tip = swapTip(week, household);
 
   async function swap() {
@@ -103,52 +102,8 @@ export default function MacrosView({ week, onOpenMenu }: { week: Week; onOpenMen
       <section className="block">
         <div className="block-head">
           <h2>By day</h2>
-          <span className="key">
-            <span>
-              <i className="mp" />
-              Protein
-            </span>
-            <span>
-              <i className="mc" />
-              Carbs
-            </span>
-            <span>
-              <i className="mf" />
-              Fat
-            </span>
-          </span>
         </div>
-        <ul className="days">
-          {DAYS.map((day) => (
-            <li key={day}>
-              <span className="dname">{day}</span>
-              <div>
-                {people.map((p) => {
-                  const v = mw.per[p.id][day];
-                  const s = splitOf(v);
-                  return (
-                    <div className="drow" key={p.id}>
-                      <span className="dwho">{p.initial}</span>
-                      <div className="dtrack">
-                        {v.cal ? (
-                          <div
-                            className="dbar"
-                            style={{ width: `${Math.max(4, Math.round((v.cal / maxCal) * 100))}%` }}
-                          >
-                            <span className="mp" style={{ width: `${s.p}%` }} />
-                            <span className="mc" style={{ width: `${s.c}%` }} />
-                            <span className="mf" style={{ width: `${s.f}%` }} />
-                          </div>
-                        ) : null}
-                      </div>
-                      <span className="dcal">{v.cal ? n0(v.cal) : "out"}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </li>
-          ))}
-        </ul>
+        <ByDayChart macros={mw} members={members} />
       </section>
 
       {tip ? (

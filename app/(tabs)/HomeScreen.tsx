@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import ByDayChart from "@/components/ByDayChart";
 import { MacroBar } from "@/components/Macros";
 import MealIcon from "@/components/MealIcon";
 import { useHousehold } from "@/lib/household/context";
@@ -26,7 +27,6 @@ import {
   mealName,
   mealPlural,
   prepSummary,
-  shortDate,
   slotKey,
   sortedMembers,
   splitOf,
@@ -41,20 +41,45 @@ import {
 const n0 = (v: number) => Number(v || 0).toLocaleString("en-US");
 
 export default function HomeScreen() {
-  const { settings, currentWeek, planningWeek, today } = useHousehold();
+  const household = useHousehold();
+  const { members, settings, currentWeek, planningWeek, today } = household;
   const router = useRouter();
   const [sheet, setSheet] = useState<null | "recipe" | "list">(null);
 
+  // Show whichever week actually has food in it. This week is only a real
+  // week once something was planned for it, which is never at the start.
+  const thisWeekIsLive = !!currentWeek?.picks.length;
+  const focus = thisWeekIsLive ? currentWeek : planningWeek;
   const todayDay = dayOf(today);
+
+  if (!focus) {
+    return (
+      <>
+        <header className="top">
+          <h1>This week</h1>
+          <p className="sub">Nothing planned yet</p>
+        </header>
+        <p className="empty">Open Plan to set up next week.</p>
+      </>
+    );
+  }
+
+  // The day to lead with: today if it is a weekday in a live week,
+  // otherwise the first day of the week being shown.
+  const heroDay: Day = thisWeekIsLive && todayDay ? todayDay : "Mon";
+  const heroIsToday = thisWeekIsLive && todayDay === heroDay;
+  const mw = macroWeek(focus, household);
+  const cans = containersByDay(focus, household);
+  const prep = prepSummary(focus, household);
+  const remaining = thisWeekIsLive && todayDay ? DAYS.slice(DAYS.indexOf(todayDay) + 1) : DAYS;
 
   return (
     <>
       <header className="top">
-        <h1>This week</h1>
+        <h1>{thisWeekIsLive ? "This week" : "Next week"}</h1>
         <p className="sub">
-          {currentWeek
-            ? `${weekRange(currentWeek.startDate)}, prepped ${settings.prepDay}`
-            : "Nothing planned for this week"}
+          {weekRange(focus.startDate)}
+          {thisWeekIsLive ? `, prepped ${settings.prepDay}` : `, prep ${settings.prepDay}`}
         </p>
       </header>
 
@@ -67,23 +92,38 @@ export default function HomeScreen() {
         </button>
       </div>
 
-      {currentWeek ? (
+      <WeekStats week={focus} cans={cans} prep={prep} />
+
+      <DayCard week={focus} day={heroDay} isToday={heroIsToday} />
+
+      <WeekAhead week={focus} days={remaining} cans={cans} heading={thisWeekIsLive ? "Rest of the week" : "The week"} />
+
+      {mw.tot.n ? (
         <>
-          <Today week={currentWeek} day={todayDay} />
-          <RestOfWeek week={currentWeek} today={todayDay} />
-          <Balance week={currentWeek} />
-          <FreezerTonight week={currentWeek} today={today} onOpenPrep={() => router.push("/prep")} />
+          <Balance week={focus} />
+          <section className="section">
+            <h2>Calories by day</h2>
+            <ByDayChart macros={mw} members={members} />
+          </section>
         </>
       ) : (
         <section className="section">
-          <h2>{todayDay ? `Today, ${DAY_FULL[todayDay]}` : shortDate(today)}</h2>
-          <p className="empty">
-            This week was never planned in the app. Next week is where the planning happens.
-          </p>
+          <h2>Macros</h2>
+          <p className="empty">Pick a menu and the week&apos;s balance shows up here.</p>
+          <div className="actions">
+            <button className="btn" onClick={() => router.push("/plan?view=menu")}>
+              Pick the menu
+            </button>
+          </div>
         </section>
       )}
 
-      {planningWeek ? <NextWeek week={planningWeek} /> : null}
+      {thisWeekIsLive ? (
+        <FreezerTonight week={focus} today={today} onOpenPrep={() => router.push("/prep")} />
+      ) : null}
+
+      {planningWeek && thisWeekIsLive ? <NextWeek week={planningWeek} /> : null}
+      {!thisWeekIsLive && planningWeek ? <PlanningRows week={planningWeek} /> : null}
 
       {sheet === "recipe" ? <AddRecipeSheet onClose={() => setSheet(null)} /> : null}
       {sheet === "list" && planningWeek ? (
@@ -93,22 +133,52 @@ export default function HomeScreen() {
   );
 }
 
-/** Today's meals with who is eating, then each person's totals (HOME-2). */
-function Today({ week, day }: { week: Week; day: Day | null }) {
+/** Four numbers that say how big the week is at a glance. */
+function WeekStats({
+  week,
+  cans,
+  prep,
+}: {
+  week: Week;
+  cans: Record<Day, number>;
+  prep: { done: number; total: number; containers: number; frozen: number };
+}) {
   const household = useHousehold();
-  const { members } = household;
-  const people = sortedMembers(members);
+  const count = totals(week, household.members);
+  const total = Object.values(cans).reduce((a, b) => a + b, 0);
 
-  if (!day) {
-    return (
-      <section className="section">
-        <h2>The weekend</h2>
-        <p className="empty">MealPrep plans Monday to Friday. Next week is ready when you are.</p>
-      </section>
-    );
-  }
+  return (
+    <ul className="fridge" style={{ marginBottom: 22 }}>
+      <li>
+        <strong>{count.all}</strong>
+        <span>meals</span>
+      </li>
+      <li>
+        <strong>{total}</strong>
+        <span>containers</span>
+      </li>
+      <li>
+        <strong>{prep.frozen}</strong>
+        <span>frozen</span>
+        {prep.frozen ? <em>Thu, Fri</em> : null}
+      </li>
+      <li>
+        <strong>
+          {prep.done}/{prep.total}
+        </strong>
+        <span>batches</span>
+      </li>
+    </ul>
+  );
+}
 
+/** One day in full: every meal, who is eating, and each person's totals. */
+function DayCard({ week, day, isToday }: { week: Week; day: Day; isToday: boolean }) {
+  const household = useHousehold();
+  const people = sortedMembers(household.members);
   const asg = assignments(week, household);
+  const mw = macroWeek(week, household);
+
   const meals = activeMeals(week)
     .map((meal) => {
       const eating = people.filter((p) => asg.has(slotKey(day, meal, p.id)));
@@ -118,11 +188,12 @@ function Today({ week, day }: { week: Week; day: Day | null }) {
     })
     .filter((m) => m.entry);
 
-  const mw = macroWeek(week, household);
-
   return (
     <section className="section">
-      <h2>Today, {DAY_FULL[day]}</h2>
+      <h2>
+        {isToday ? "Today, " : ""}
+        {DAY_FULL[day]} {dayNumber(dayDate(week.startDate, day))}
+      </h2>
       {meals.length ? (
         <>
           <ul className="today">
@@ -164,7 +235,7 @@ function Today({ week, day }: { week: Week; day: Day | null }) {
                       </small>
                     </>
                   ) : (
-                    <small>Eating out today</small>
+                    <small>Nothing at home</small>
                   )}
                 </div>
               );
@@ -172,38 +243,37 @@ function Today({ week, day }: { week: Week; day: Day | null }) {
           </div>
         </>
       ) : (
-        <p className="empty">No meals assigned for today.</p>
+        <p className="empty">No meals on this day yet.</p>
       )}
     </section>
   );
 }
 
-/** The days still to come, so you know what is in the fridge (HOME-5). */
-function RestOfWeek({ week, today }: { week: Week; today: Day | null }) {
+/** The other days, with their dishes and how many containers are waiting. */
+function WeekAhead({
+  week,
+  days,
+  cans,
+  heading,
+}: {
+  week: Week;
+  days: readonly Day[];
+  cans: Record<Day, number>;
+  heading: string;
+}) {
   const household = useHousehold();
   const asg = assignments(week, household);
-  const cans = containersByDay(week, household);
-  const from = today ? DAYS.indexOf(today) + 1 : 0;
-  const days = DAYS.slice(from);
-
-  if (!days.length) {
-    return (
-      <section className="section">
-        <h2>Rest of the week</h2>
-        <p className="empty">Friday is the last planned day. Next week is below.</p>
-      </section>
-    );
-  }
+  const people = sortedMembers(household.members);
+  if (!days.length) return null;
 
   return (
     <section className="section">
-      <h2>Rest of the week</h2>
+      <h2>{heading}</h2>
       <ul className="wk">
         {days.map((day) => {
-          // One line per day, listing each distinct dish once.
           const dishes: string[] = [];
           for (const meal of activeMeals(week)) {
-            for (const p of sortedMembers(household.members)) {
+            for (const p of people) {
               const entry = asg.get(slotKey(day, meal as MealType, p.id));
               if (entry && !dishes.includes(entry.recipe.name)) dishes.push(entry.recipe.name);
             }
@@ -230,13 +300,11 @@ function RestOfWeek({ week, today }: { week: Week; today: Day | null }) {
   );
 }
 
-/** How the week is leaning, and what each of you averages a day (MAC-2, MAC-3). */
+/** How the week is leaning, and each person's daily average at home. */
 function Balance({ week }: { week: Week }) {
   const household = useHousehold();
   const { members, settings } = household;
   const mw = macroWeek(week, household);
-  if (!mw.tot.n) return null;
-
   const split = splitOf(mw.tot);
   const label = weekLabel(split, settings.macroThresholds);
 
@@ -244,9 +312,20 @@ function Balance({ week }: { week: Week }) {
     <section className="section">
       <div className="balance">
         <h2>{label.title}</h2>
-        <span>
-          {split.p}% protein · {split.c}% carbs · {split.f}% fat
-        </span>
+      </div>
+      <div className="split-big" style={{ margin: "4px 0 12px" }}>
+        <div className="bp">
+          <strong>{split.p}%</strong>
+          <span>protein</span>
+        </div>
+        <div className="bc">
+          <strong>{split.c}%</strong>
+          <span>carbs</span>
+        </div>
+        <div className="bf">
+          <strong>{split.f}%</strong>
+          <span>fat</span>
+        </div>
       </div>
       <MacroBar split={split} />
       <div className="daytot">
@@ -305,11 +384,8 @@ function FreezerTonight({
   );
 }
 
-/** The planning hub: one row per section, each with a live status (HOME-3). */
-function NextWeek({ week }: { week: Week }) {
-  const household = useHousehold();
+function rowsFor(week: Week, household: ReturnType<typeof useHousehold>) {
   const { members, settings } = household;
-
   const count = totals(week, members);
   const gaps = gapCount(week, members);
   const split = splitOf(macroWeek(week, household).tot);
@@ -318,7 +394,7 @@ function NextWeek({ week }: { week: Week }) {
   const toBuy = buyItems(week, household).filter((i) => !i.checked).length;
   const meals = (["b", "l", "d"] as const).reduce((s, m) => s + count.byMeal[m], 0);
 
-  const rows = [
+  return [
     {
       href: "/plan?view=eating",
       title: "Who's eating",
@@ -341,31 +417,50 @@ function NextWeek({ week }: { week: Week }) {
     {
       href: "/prep",
       title: "Prep day",
-      status: prep.total
-        ? `${prep.done} of ${prep.total} batches done`
-        : "Nothing to prep yet",
+      status: prep.total ? `${prep.done} of ${prep.total} batches done` : "Nothing to prep yet",
       warn: false,
     },
   ];
+}
 
+function HubRows({ rows }: { rows: ReturnType<typeof rowsFor> }) {
+  return (
+    <ul className="rows">
+      {rows.map((row) => (
+        <li key={row.href}>
+          <Link className="row" href={row.href}>
+            <span className="row-main">
+              <span className="row-title">{row.title}</span>
+              <span className={`row-meta ${row.warn ? "warn" : ""}`}>{row.status}</span>
+            </span>
+            <span className="chev" aria-hidden="true">
+              ›
+            </span>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** The planning hub when this week is the one on screen. */
+function NextWeek({ week }: { week: Week }) {
+  const household = useHousehold();
   return (
     <section className="section">
       <h2>Next week, {weekRange(week.startDate)}</h2>
-      <ul className="rows">
-        {rows.map((row) => (
-          <li key={row.href}>
-            <Link className="row" href={row.href}>
-              <span className="row-main">
-                <span className="row-title">{row.title}</span>
-                <span className={`row-meta ${row.warn ? "warn" : ""}`}>{row.status}</span>
-              </span>
-              <span className="chev" aria-hidden="true">
-                ›
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ul>
+      <HubRows rows={rowsFor(week, household)} />
+    </section>
+  );
+}
+
+/** The same hub when next week is already the one on screen. */
+function PlanningRows({ week }: { week: Week }) {
+  const household = useHousehold();
+  return (
+    <section className="section">
+      <h2>Still to do</h2>
+      <HubRows rows={rowsFor(week, household)} />
     </section>
   );
 }
