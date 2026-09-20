@@ -115,3 +115,26 @@ export function swapTip(week: Week, ctx: Context): SwapTip | null {
   if (!alts.length) return null;
   return { meal: top.meal, pickId: top.pickId, from: { recipe: top.recipe, version: top.version }, to: alts[0] };
 }
+
+/**
+ * What a week's menu adds up to, counted from the picks rather than from
+ * the day assignments. This is what was planned, so it stands even for a
+ * week whose portions overflow its slots, and it needs only the picks and
+ * the versions they pinned.
+ */
+export function plannedTotals(
+  picks: { versionId: string; portions: number }[],
+  versions: RecipeVersion[],
+): MacroTotals {
+  const tot = blank();
+  for (const pick of picks) {
+    const v = versions.find((x) => x.id === pick.versionId);
+    if (!v) continue;
+    tot.cal += v.cal * pick.portions;
+    tot.protein += v.protein * pick.portions;
+    tot.carbs += v.carbs * pick.portions;
+    tot.fat += v.fat * pick.portions;
+    tot.n += pick.portions;
+  }
+  return tot;
+}

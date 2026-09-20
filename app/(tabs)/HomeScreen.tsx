@@ -8,7 +8,7 @@ import { MacroBar } from "@/components/Macros";
 import MealIcon from "@/components/MealIcon";
 import { useHousehold } from "@/lib/household/context";
 import AddRecipeSheet from "./recipes/AddRecipeSheet";
-import AddToListSheet from "./list/AddToListSheet";
+import AddToListSheet from "./prep/shop/AddToListSheet";
 import {
   DAYS,
   DAY_FULL,
@@ -112,7 +112,7 @@ export default function HomeScreen() {
           <h2>Macros</h2>
           <p className="empty">Pick a menu and the week&apos;s balance shows up here.</p>
           <div className="actions">
-            <button className="btn" onClick={() => router.push("/plan?view=menu")}>
+            <button className="btn" onClick={() => router.push("/prep?step=menu")}>
               Pick the menu
             </button>
           </div>
@@ -399,26 +399,26 @@ function rowsFor(week: Week, household: ReturnType<typeof useHousehold>) {
 
   return [
     {
-      href: "/plan?view=eating",
+      href: "/prep?step=eating",
       title: "Who's eating",
       status: `${meals} meals${week.snacksEnabled ? `, ${count.byMeal.s} snacks` : ""}`,
       warn: false,
     },
     {
-      href: "/plan?view=menu",
+      href: "/prep?step=menu",
       title: "Menu",
       status: gaps ? `${gaps} still need a recipe` : "Every meal has a recipe",
       warn: gaps > 0,
     },
     {
-      href: "/plan?view=macros",
+      href: "/insights",
       title: "Macros",
       status: label.title + (split.p ? `, ${split.p}% protein` : ""),
       warn: false,
     },
-    { href: "/list", title: "Shopping list", status: `${toBuy} items to buy`, warn: false },
+    { href: "/prep?step=shop", title: "Shopping list", status: `${toBuy} items to buy`, warn: false },
     {
-      href: "/prep",
+      href: "/prep?step=cook",
       title: "Prep day",
       status: prep.total ? `${prep.done} of ${prep.total} batches done` : "Nothing to prep yet",
       warn: false,

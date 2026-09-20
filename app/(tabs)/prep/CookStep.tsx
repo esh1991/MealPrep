@@ -1,10 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Check from "@/components/Check";
-import WeekPicker from "@/components/WeekPicker";
 import { useHousehold } from "@/lib/household/context";
 import { setPrepDone } from "@/lib/supabase/weekMutations";
 import {
@@ -16,6 +14,7 @@ import {
   shortDate,
   weekRange,
   type Batch,
+  type Week,
   type Method,
 } from "@/lib/domain";
 
@@ -25,44 +24,28 @@ const METHODS: { k: Method; n: string; note: string }[] = [
   { k: "nocook", n: "No-cook", note: "Assemble last, while everything else cools." },
 ];
 
-export default function PrepScreen() {
+export default function CookStep({ week, onOpenMenu }: { week: Week; onOpenMenu: () => void }) {
   const household = useHousehold();
-  const { selectedWeek, settings, refresh } = household;
-  const router = useRouter();
+  const { settings, refresh } = household;
   const [busy, setBusy] = useState(false);
+  const selectedWeek = week;
 
   const header = (
-    <header className="top">
-      <h1>Prep day</h1>
-      {selectedWeek ? (
-        <p className="sub">
-          {settings.prepDay} {shortDate(prepDate(selectedWeek.startDate, settings.prepDay))}, for{" "}
-          {weekRange(selectedWeek.startDate)}
-        </p>
-      ) : null}
-    </header>
+    <p className="lede">
+      Cook on {settings.prepDay} {shortDate(prepDate(selectedWeek.startDate, settings.prepDay))}, for{" "}
+      {weekRange(selectedWeek.startDate)}.
+    </p>
   );
-
-  if (!selectedWeek) {
-    return (
-      <>
-        {header}
-        <WeekPicker />
-        <p className="empty">Setting up that week…</p>
-      </>
-    );
-  }
 
   const all = batches(selectedWeek, household);
   if (!all.length) {
     return (
       <>
         {header}
-        <WeekPicker />
-        <p className="empty">Nothing to prep yet. Pick a menu and the batches appear here.</p>
+        <p className="empty">Nothing to cook yet. The batches come from the menu.</p>
         <div className="actions">
-          <button className="btn" onClick={() => router.push("/plan?view=menu")}>
-            Pick the menu
+          <button className="btn" onClick={onOpenMenu}>
+            Back to the menu
           </button>
         </div>
       </>
@@ -85,8 +68,6 @@ export default function PrepScreen() {
   return (
     <>
       {header}
-
-      <WeekPicker />
 
       <div
         className="meter"

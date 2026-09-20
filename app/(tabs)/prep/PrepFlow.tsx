@@ -7,30 +7,41 @@ import { StepBar, StepFooter, type Step } from "@/components/Steps";
 import WeekPicker from "@/components/WeekPicker";
 import { useHousehold } from "@/lib/household/context";
 import { resetWeek } from "@/lib/supabase/weekMutations";
-import { gapCount, macroWeek, relativeWeek, totals, weekRange } from "@/lib/domain";
+import {
+  batches,
+  buyItems,
+  gapCount,
+  prepSummary,
+  relativeWeek,
+  totals,
+  weekRange,
+} from "@/lib/domain";
 import EatingGrid from "./EatingGrid";
 import MenuView from "./MenuView";
-import MacrosView from "./MacrosView";
+import ShopStep from "./ShopStep";
+import CookStep from "./CookStep";
 
-type View = "eating" | "menu" | "macros";
+// The whole ritual, in the order it happens: work out how many meals,
+// choose what fills them, buy it, cook it.
+type StepKey = "eating" | "menu" | "shop" | "cook";
 
-function isView(v: string | null): v is View {
-  return v === "eating" || v === "menu" || v === "macros";
+function isStep(v: string | null): v is StepKey {
+  return v === "eating" || v === "menu" || v === "shop" || v === "cook";
 }
 
-export default function PlanScreen() {
+export default function PrepFlow() {
   const household = useHousehold();
   const { selectedWeek, selectedWeekStart, members, today, refresh } = household;
   const router = useRouter();
   const params = useSearchParams();
+  const [step, setStep] = useState<StepKey>(isStep(params.get("step")) ? (params.get("step") as StepKey) : "eating");
   const [resetting, setResetting] = useState(false);
-  const [view, setView] = useState<View>(isView(params.get("view")) ? (params.get("view") as View) : "eating");
 
   if (!selectedWeek) {
     return (
       <>
         <header className="top">
-          <h1>Plan</h1>
+          <h1>Prep</h1>
         </header>
         <WeekPicker />
         <p className="empty">Setting up that week…</p>
@@ -40,9 +51,18 @@ export default function PlanScreen() {
 
   const count = totals(selectedWeek, members);
   const gaps = gapCount(selectedWeek, members);
-  const planned = macroWeek(selectedWeek, household).tot.n > 0;
+  const items = buyItems(selectedWeek, household);
+  const toBuy = items.filter((i) => !i.checked).length;
+  const cooking = prepSummary(selectedWeek, household);
+  const hasBatches = batches(selectedWeek, household).length > 0;
 
-  // What a reset would actually throw away, so the confirmation can say so.
+  const steps: Step<StepKey>[] = [
+    { key: "eating", label: "Eating", done: count.all > 0 },
+    { key: "menu", label: "Menu", done: count.all > 0 && gaps === 0 },
+    { key: "shop", label: "Shop", done: items.length > 0 && toBuy === 0 },
+    { key: "cook", label: "Cook", done: hasBatches && cooking.done === cooking.total },
+  ];
+
   const offSlots = selectedWeek.slots.filter((slot) => !slot.eating).length;
   const willClear = [
     selectedWeek.picks.length ? `${selectedWeek.picks.length} recipes on the menu` : "",
@@ -54,23 +74,17 @@ export default function PlanScreen() {
       : "",
   ].filter(Boolean);
 
-  const steps: Step<View>[] = [
-    { key: "eating", label: "Who's eating", done: count.all > 0 },
-    { key: "menu", label: "Menu", done: count.all > 0 && gaps === 0 },
-    { key: "macros", label: "Balance", done: planned && gaps === 0 },
-  ];
-
   return (
     <>
       <header className="top">
-        <h1>Plan</h1>
+        <h1>Prep</h1>
         <p className="sub">{relativeWeek(selectedWeekStart, today)}</p>
       </header>
 
       <WeekPicker />
-      <StepBar steps={steps} current={view} onSelect={setView} />
+      <StepBar steps={steps} current={step} onSelect={setStep} />
 
-      {view === "eating" ? (
+      {step === "eating" ? (
         <>
           <EatingGrid week={selectedWeek} />
           <StepFooter
@@ -80,43 +94,34 @@ export default function PlanScreen() {
                 : "Nobody is eating at home this week. Tap the names above to add meals back."
             }
             action="Next: pick the menu"
-            onAction={() => setView("menu")}
+            onAction={() => setStep("menu")}
             tone={count.all ? "ok" : "warn"}
           />
         </>
       ) : null}
 
-      {view === "menu" ? (
+      {step === "menu" ? (
         <>
-          <MenuView week={selectedWeek} onOpenMacros={() => setView("macros")} />
+          <MenuView week={selectedWeek} onOpenMacros={() => router.push("/insights")} />
           <StepFooter
             hint={
               gaps
-                ? `${gaps} ${gaps === 1 ? "meal still needs" : "meals still need"} a recipe. You can check the balance anyway.`
-                : "Every meal has a recipe. See how the week is leaning."
+                ? `${gaps} ${gaps === 1 ? "meal still needs" : "meals still need"} a recipe. The list will be short without them.`
+                : "Every meal has a recipe. The shopping list is built from this."
             }
-            action="Next: check the balance"
-            onAction={() => setView("macros")}
+            action="Next: the shopping list"
+            onAction={() => setStep("shop")}
             tone={gaps ? "warn" : "ok"}
           />
         </>
       ) : null}
 
-      {view === "macros" ? (
-        <>
-          <MacrosView week={selectedWeek} onOpenMenu={() => setView("menu")} />
-          <StepFooter
-            hint={
-              gaps
-                ? `${gaps} ${gaps === 1 ? "meal" : "meals"} without a recipe will be missing from the list.`
-                : "Happy with it? The shopping list is built from this menu."
-            }
-            action="Next: build the shopping list"
-            onAction={() => router.push("/list")}
-            tone={gaps ? "warn" : "ok"}
-          />
-        </>
+      {step === "shop" ? (
+        <ShopStep week={selectedWeek} onOpenMenu={() => setStep("menu")} onDone={() => setStep("cook")} />
       ) : null}
+
+      {step === "cook" ? <CookStep week={selectedWeek} onOpenMenu={() => setStep("menu")} /> : null}
+
       <div className="reset">
         <button onClick={() => setResetting(true)}>Reset this week</button>
       </div>

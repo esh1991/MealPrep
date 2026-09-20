@@ -15,9 +15,8 @@ const ICONS = {
 const TABS: { key: keyof typeof ICONS; href: string; label: string }[] = [
   { key: "home", href: "/", label: "This week" },
   { key: "recipes", href: "/recipes", label: "Recipes" },
-  { key: "plan", href: "/plan", label: "Plan" },
-  { key: "list", href: "/list", label: "List" },
   { key: "prep", href: "/prep", label: "Prep" },
+  { key: "plan", href: "/insights", label: "Insights" },
 ];
 
 export function Icon({ name }: { name: keyof typeof ICONS }) {
@@ -38,7 +37,7 @@ export function Icon({ name }: { name: keyof typeof ICONS }) {
 export default function Tabs() {
   const pathname = usePathname();
   return (
-    <nav className="tabs" aria-label="Main">
+    <nav className="tabs" style={{ gridTemplateColumns: `repeat(${TABS.length}, 1fr)` }} aria-label="Main">
       {TABS.map((t) => {
         const on = t.href === "/" ? pathname === "/" : pathname.startsWith(t.href);
         return (

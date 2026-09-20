@@ -8,3 +8,4 @@ export * from "./macros";
 export * from "./versions";
 export * from "./aisle";
 export * from "./dates";
+export * from "./insights";

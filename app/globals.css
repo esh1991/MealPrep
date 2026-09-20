@@ -366,3 +366,11 @@ details.block p{margin:10px 0 4px;font-size:15px}
 .btn.danger{background:var(--beet);color:#fff}
 .reset{margin:34px 0 8px;padding-top:18px;border-top:1px solid var(--line);display:flex;justify-content:center}
 .reset button{color:var(--beet);font-weight:650;font-size:14.5px;padding:8px 4px}
+
+/* protein share across weeks */
+.trend{list-style:none;margin:10px 0 0;padding:0}
+.trend li{display:grid;grid-template-columns:56px 1fr 44px;gap:10px;align-items:center;padding:7px 0}
+.t-week{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.t-track{display:block;height:14px;background:var(--line);border-radius:4px;overflow:hidden}
+.t-fill{display:block;height:100%;background:var(--mp);border-radius:4px}
+.t-val{font-size:14px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums}

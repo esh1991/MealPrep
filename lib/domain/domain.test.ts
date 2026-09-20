@@ -19,7 +19,10 @@ import {
   listAsText,
   macroWeek,
   planningWeekStart,
+  plannedTotals,
   prepDate,
+  ratingCounts,
+  recipeUsage,
   prepSummary,
   relativeWeek,
   roundQ,
@@ -30,6 +33,7 @@ import {
   toggleDay,
   totals,
   weekLabel,
+  weekPoints,
   weekRange,
   withAddedPick,
   withPortionDelta,
@@ -350,5 +354,52 @@ describe("week boundaries", () => {
     expect(prepDate("2026-09-21", "Sunday")).toBe("2026-09-20");
     expect(dayOf("2026-09-15")).toBe("Tue");
     expect(dayOf("2026-09-19")).toBeNull();
+  });
+});
+
+describe("insights across weeks", () => {
+  const w = sampleWeek();
+  const summaries = [
+    { startDate: "2026-09-21", picks: w.picks.map((p) => ({ recipeId: p.recipeId, versionId: p.versionId, portions: p.portions })) },
+    { startDate: "2026-09-14", picks: [{ recipeId: "l1", versionId: "v-l1", portions: 4 }] },
+  ];
+
+  it("totals a week from its picks, matching the assigned totals when they fit", () => {
+    const fromPicks = plannedTotals(summaries[0].picks, ctx.versions);
+    const fromDays = macroWeek(w, ctx).tot;
+    expect(fromPicks.protein).toBe(fromDays.protein);
+    expect(fromPicks.carbs).toBe(fromDays.carbs);
+    expect(fromPicks.n).toBe(38);
+  });
+
+  it("counts portions the slots cannot hold, which day assignment drops", () => {
+    const over = [{ recipeId: "d2", versionId: "v-d2", portions: 100 }];
+    expect(plannedTotals(over, ctx.versions).n).toBe(100);
+  });
+
+  it("orders week points oldest first with their splits", () => {
+    const points = weekPoints(summaries, ctx.versions);
+    expect(points.map((p) => p.startDate)).toEqual(["2026-09-14", "2026-09-21"]);
+    expect(points[1].split).toEqual(splitOf(macroWeek(w, ctx).tot));
+    expect(points[0].portions).toBe(4);
+  });
+
+  it("ranks recipes by portions cooked and remembers when each was last planned", () => {
+    const usage = recipeUsage(summaries, ctx.recipes);
+    const tikka = usage.find((u) => u.recipe.id === "l1")!;
+    expect(tikka.portions).toBe(9);
+    expect(tikka.weeks).toBe(2);
+    expect(tikka.lastPlanned).toBe("2026-09-21");
+    const never = usage.find((u) => u.recipe.id === "d3")!;
+    expect(never.portions).toBe(0);
+    expect(never.lastPlanned).toBeNull();
+    expect(usage[0].portions).toBeGreaterThanOrEqual(usage[1].portions);
+  });
+
+  it("breaks the library down by rating", () => {
+    // b1, l1, l3, d1, s1, s3 are keepers; only the beef stir-fry needs work.
+    expect(ratingCounts(ctx.recipes)).toEqual({ keeper: 6, good: 5, work: 1 });
+    const total = Object.values(ratingCounts(ctx.recipes)).reduce((a, b) => a + b, 0);
+    expect(total).toBe(ctx.recipes.length);
   });
 });
