@@ -443,12 +443,12 @@ select
   )
 where not exists (select 1 from app_mealprep.households);
 
--- Replace the second email before running.
+-- Both household members, by the email on their Google account.
 insert into app_mealprep.members (household_id, email, display_name, initial, sort_order)
 select h.id, m.email, m.display_name, m.initial, m.sort_order
 from app_mealprep.households h
 cross join (values
   ('esh1991@gmail.com', 'Shiva',  'S', 0),
-  ('doreen@example.com', 'Doreen', 'D', 1)
+  ('doreen318@gmail.com', 'Doreen', 'D', 1)
 ) as m(email, display_name, initial, sort_order)
 on conflict (email) do nothing;

@@ -38,15 +38,31 @@ export default async function TabsLayout({ children }: { children: React.ReactNo
   }
 
   if (session.state === "not-member") {
+    // Signing in with Google only proves who someone is. Membership of this
+    // household is a separate list, so say exactly how to fix it.
     return (
       <main className="signin">
         <span className="tape">MealPrep</span>
         <h1>This app is for one household</h1>
         <p className="sub">
-          {session.user.email} isn&apos;t on the list. If it should be, add it to the members table in Supabase.
+          Google signed you in as <strong>{session.user.email}</strong>, but that address is not on
+          the household list.
         </p>
+        <details className="block">
+          <summary>If it should be</summary>
+          <p>Run this in the Supabase SQL editor, replacing the address being corrected:</p>
+          <pre style={{ whiteSpace: "pre-wrap", fontSize: 13 }}>
+            {`update app_mealprep.members\nset email = '${session.user.email}'\nwhere display_name = 'Doreen';`}
+          </pre>
+          <p className="muted">
+            Then sign in again. The household has exactly two seats, so this replaces an address
+            rather than adding a third.
+          </p>
+        </details>
         <form action="/auth/signout" method="post">
-          <button className="btn ghost" type="submit">Sign out</button>
+          <button className="btn ghost" type="submit">
+            Sign out
+          </button>
         </form>
       </main>
     );
