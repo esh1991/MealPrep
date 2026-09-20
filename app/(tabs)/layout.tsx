@@ -4,7 +4,7 @@ import { ToastProvider } from "@/components/Toast";
 import { HouseholdProvider } from "@/lib/household/context";
 import { getSession } from "@/lib/supabase/member";
 import { createClient } from "@/lib/supabase/server";
-import { loadHousehold } from "@/lib/supabase/queries";
+import { loadAll } from "@/lib/supabase/all";
 
 // Every screen under the tab bar shows one household's data and depends on
 // who is signed in, so none of it can be prerendered at build time.
@@ -52,7 +52,7 @@ export default async function TabsLayout({ children }: { children: React.ReactNo
     );
   }
 
-  const data = await loadHousehold(await createClient());
+  const data = await loadAll(await createClient());
   if (!data) {
     return (
       <main className="signin">

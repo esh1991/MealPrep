@@ -2,13 +2,20 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { loadHousehold, type HouseholdData } from "@/lib/supabase/queries";
+import { loadAll, type AppData } from "@/lib/supabase/all";
 import { APP_SCHEMA } from "@/lib/supabase/env";
-import type { Recipe, RecipeVersion } from "@/lib/domain";
+import type { Context, Recipe, RecipeVersion, Week } from "@/lib/domain";
 
-interface HouseholdValue extends HouseholdData {
+interface HouseholdValue extends Context {
+  householdId: string;
+  householdName: string;
   /** The signed-in member, for stamping who made a change. */
   memberId: string;
+  /** Next week, the one being planned. */
+  planningWeek: Week | null;
+  /** This week, for the home screen. */
+  currentWeek: Week | null;
+  today: string;
   /** Re-read everything from the database. */
   refresh: () => Promise<void>;
   refreshing: boolean;
@@ -20,16 +27,27 @@ interface HouseholdValue extends HouseholdData {
 
 const Ctx = createContext<HouseholdValue | null>(null);
 
-// Recipe tables both phones should stay in sync on. Week tables join this
-// list in Phase 4.
-const WATCHED = ["recipes", "recipe_versions", "recipe_version_ingredients", "ingredients"];
+// Tables both phones should stay in sync on.
+const WATCHED = [
+  "recipes",
+  "recipe_versions",
+  "recipe_version_ingredients",
+  "ingredients",
+  "weeks",
+  "week_slots",
+  "week_picks",
+  "week_pantry_checks",
+  "week_extras",
+  "week_list_checks",
+  "week_prep_status",
+];
 
 export function HouseholdProvider({
   initial,
   memberId,
   children,
 }: {
-  initial: HouseholdData;
+  initial: AppData;
   memberId: string;
   children: React.ReactNode;
 }) {
@@ -40,7 +58,7 @@ export function HouseholdProvider({
   const refresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      const next = await loadHousehold(createClient());
+      const next = await loadAll(createClient());
       if (next) setData(next);
     } finally {
       setRefreshing(false);
@@ -75,18 +93,24 @@ export function HouseholdProvider({
   }, [refresh]);
 
   const value = useMemo<HouseholdValue>(() => {
-    const recipeById = (id: string) => data.recipes.find((r) => r.id === id);
-    const versionById = (id: string) => data.versions.find((v) => v.id === id);
+    const { household } = data;
+    const recipeById = (id: string) => household.recipes.find((r) => r.id === id);
+    const versionById = (id: string) => household.versions.find((v) => v.id === id);
     return {
-      ...data,
+      ...household,
       memberId,
+      planningWeek: data.planningWeek,
+      currentWeek: data.currentWeek,
+      today: data.today,
       refresh,
       refreshing,
       recipeById,
       versionById,
       currentVersion: (recipe: Recipe) => versionById(recipe.currentVersionId),
       versionsOf: (recipeId: string) =>
-        data.versions.filter((v) => v.recipeId === recipeId).sort((a, b) => a.versionNo - b.versionNo),
+        household.versions
+          .filter((v) => v.recipeId === recipeId)
+          .sort((a, b) => a.versionNo - b.versionNo),
     };
   }, [data, memberId, refresh, refreshing]);
 

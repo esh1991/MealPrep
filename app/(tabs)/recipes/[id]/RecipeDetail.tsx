@@ -7,7 +7,8 @@ import { LabelledStepper } from "@/components/Stepper";
 import { useToast } from "@/components/Toast";
 import { useHousehold } from "@/lib/household/context";
 import { clearGuesses, setRating } from "@/lib/supabase/mutations";
-import { formatQty, mealName, type Rating } from "@/lib/domain";
+import { addPick, setSnacks } from "@/lib/supabase/weekMutations";
+import { formatQty, mealName, mealPlural, picksFor, type Rating } from "@/lib/domain";
 import TweakSheet from "./TweakSheet";
 
 const RATINGS: [Rating, string][] = [
@@ -18,9 +19,11 @@ const RATINGS: [Rating, string][] = [
 
 export default function RecipeDetail({ recipeId }: { recipeId: string }) {
   const toast = useToast();
-  const { recipeById, currentVersion, versionsOf, ingredients, refresh } = useHousehold();
+  const { recipeById, currentVersion, versionsOf, ingredients, members, planningWeek, refresh } =
+    useHousehold();
   const [servings, setServings] = useState<number | null>(null);
   const [tweaking, setTweaking] = useState(false);
+  const [adding, setAdding] = useState(false);
 
   const recipe = recipeById(recipeId);
   const version = recipe ? currentVersion(recipe) : undefined;
@@ -54,6 +57,28 @@ export default function RecipeDetail({ recipeId }: { recipeId: string }) {
     await clearGuesses(recipe.id);
     await refresh();
     toast("Guesses cleared");
+  }
+
+  /** Covers whatever is still uncovered for this meal next week (REC-14). */
+  async function addToNextWeek() {
+    if (!recipe || !version || !planningWeek) return;
+    if (picksFor(planningWeek, recipe.type).some((p) => p.recipeId === recipe.id)) {
+      toast(`Already in next week's ${mealPlural(recipe.type)}`);
+      return;
+    }
+    setAdding(true);
+    try {
+      // A snack can only be planned once the snack column is on.
+      const week =
+        recipe.type === "s" && !planningWeek.snacksEnabled
+          ? (await setSnacks(planningWeek.id, true), { ...planningWeek, snacksEnabled: true })
+          : planningWeek;
+      await addPick(week, members, recipe.type, recipe.id, version.id);
+      await refresh();
+      toast(`Added to next week's ${mealPlural(recipe.type)}`);
+    } finally {
+      setAdding(false);
+    }
   }
 
   return (
@@ -174,8 +199,12 @@ export default function RecipeDetail({ recipeId }: { recipeId: string }) {
         <button className="btn" onClick={() => setTweaking(true)}>
           Save a tweak
         </button>
-        <button className="btn ghost" disabled title="Comes with the Plan tab in Phase 4">
-          Add to next week
+        <button
+          className="btn ghost"
+          onClick={() => void addToNextWeek()}
+          disabled={adding || !planningWeek}
+        >
+          {adding ? "Adding…" : "Add to next week"}
         </button>
       </div>
 
