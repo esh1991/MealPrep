@@ -138,3 +138,20 @@ export async function setPrepDone(weekId: string, pickId: string, done: boolean)
     .upsert({ week_id: weekId, pick_id: pickId, done }, { onConflict: "week_id,pick_id" });
   if (error) throw error;
 }
+
+/**
+ * Puts a week back to how it starts: everyone eating every meal, no menu,
+ * no pantry answers, no extras, nothing crossed off or prepped.
+ *
+ * Deleting the week row cascades to all of that, and ensure_week rebuilds
+ * the 40 slots, so there is no list of tables here to fall out of date when
+ * a new one is added. Recipes and the standing pantry lists are household
+ * data and are not touched.
+ */
+export async function resetWeek(weekId: string, startDate: string) {
+  const supabase = createClient();
+  const { error } = await supabase.from("weeks").delete().eq("id", weekId);
+  if (error) throw error;
+  const { error: rebuildError } = await supabase.rpc("ensure_week", { p_start_date: startDate });
+  if (rebuildError) throw rebuildError;
+}

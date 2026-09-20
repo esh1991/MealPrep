@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import ConfirmSheet from "@/components/ConfirmSheet";
 import { StepBar, StepFooter, type Step } from "@/components/Steps";
 import WeekPicker from "@/components/WeekPicker";
 import { useHousehold } from "@/lib/household/context";
-import { gapCount, macroWeek, relativeWeek, totals } from "@/lib/domain";
+import { resetWeek } from "@/lib/supabase/weekMutations";
+import { gapCount, macroWeek, relativeWeek, totals, weekRange } from "@/lib/domain";
 import EatingGrid from "./EatingGrid";
 import MenuView from "./MenuView";
 import MacrosView from "./MacrosView";
@@ -18,9 +20,10 @@ function isView(v: string | null): v is View {
 
 export default function PlanScreen() {
   const household = useHousehold();
-  const { selectedWeek, selectedWeekStart, members, today } = household;
+  const { selectedWeek, selectedWeekStart, members, today, refresh } = household;
   const router = useRouter();
   const params = useSearchParams();
+  const [resetting, setResetting] = useState(false);
   const [view, setView] = useState<View>(isView(params.get("view")) ? (params.get("view") as View) : "eating");
 
   if (!selectedWeek) {
@@ -38,6 +41,18 @@ export default function PlanScreen() {
   const count = totals(selectedWeek, members);
   const gaps = gapCount(selectedWeek, members);
   const planned = macroWeek(selectedWeek, household).tot.n > 0;
+
+  // What a reset would actually throw away, so the confirmation can say so.
+  const offSlots = selectedWeek.slots.filter((slot) => !slot.eating).length;
+  const willClear = [
+    selectedWeek.picks.length ? `${selectedWeek.picks.length} recipes on the menu` : "",
+    offSlots ? `${offSlots} meals you switched off` : "",
+    selectedWeek.extras.length ? `${selectedWeek.extras.length} added to the list` : "",
+    selectedWeek.pantryChecks.length ? `${selectedWeek.pantryChecks.length} pantry answers` : "",
+    Object.values(selectedWeek.prepDone).filter(Boolean).length
+      ? `${Object.values(selectedWeek.prepDone).filter(Boolean).length} prepped batches`
+      : "",
+  ].filter(Boolean);
 
   const steps: Step<View>[] = [
     { key: "eating", label: "Who's eating", done: count.all > 0 },
@@ -101,6 +116,45 @@ export default function PlanScreen() {
             tone={gaps ? "warn" : "ok"}
           />
         </>
+      ) : null}
+      <div className="reset">
+        <button onClick={() => setResetting(true)}>Reset this week</button>
+      </div>
+
+      {resetting ? (
+        <ConfirmSheet
+          title={`Reset ${relativeWeek(selectedWeekStart, today).toLowerCase()}?`}
+          confirmLabel="Reset the week"
+          onClose={() => setResetting(false)}
+          onConfirm={async () => {
+            await resetWeek(selectedWeek.id, selectedWeek.startDate);
+            await refresh();
+          }}
+          body={
+            <>
+              <p className="muted">
+                {weekRange(selectedWeekStart)} goes back to everyone eating every meal, with nothing
+                picked.
+              </p>
+              {willClear.length ? (
+                <>
+                  <span className="flabel">This clears</span>
+                  <ul className="guesses">
+                    {willClear.map((line) => (
+                      <li key={line}>{line}</li>
+                    ))}
+                  </ul>
+                </>
+              ) : (
+                <p className="fine">There is nothing in this week yet, so nothing will be lost.</p>
+              )}
+              <p className="fine">
+                Your recipes and both pantry lists are household data and are left alone. Other weeks
+                are untouched.
+              </p>
+            </>
+          }
+        />
       ) : null}
     </>
   );

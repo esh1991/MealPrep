@@ -361,3 +361,8 @@ details.block p{margin:10px 0 4px;font-size:15px}
 /* the nudge onward at the end of a step */
 .step-footer{margin:26px 0 8px;padding-top:18px;border-top:1px solid var(--line);display:grid;gap:10px}
 .step-footer p{font-size:15px}
+
+/* destructive confirmation */
+.btn.danger{background:var(--beet);color:#fff}
+.reset{margin:34px 0 8px;padding-top:18px;border-top:1px solid var(--line);display:flex;justify-content:center}
+.reset button{color:var(--beet);font-weight:650;font-size:14.5px;padding:8px 4px}
