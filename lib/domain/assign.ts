@@ -104,3 +104,15 @@ export function prepSummary(week: Week, ctx: Context): PrepSummary {
     frozen: bs.reduce((s, b) => s + freeze.reduce((t, d) => t + (b.days[d] ?? 0), 0), 0),
   };
 }
+
+/**
+ * Containers waiting in the fridge or freezer for each day of the week.
+ * The home screen counts down what is left from today onward (HOME-5).
+ */
+export function containersByDay(week: Week, ctx: Context): Record<Day, number> {
+  const out = { Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0 } as Record<Day, number>;
+  for (const b of batches(week, ctx)) {
+    for (const day of Object.keys(b.days) as Day[]) out[day] += b.days[day] ?? 0;
+  }
+  return out;
+}

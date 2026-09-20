@@ -4,6 +4,7 @@ import {
   assignments,
   batches,
   buyItems,
+  containersByDay,
   coverage,
   coverageLabel,
   currentWeekStart,
@@ -147,6 +148,12 @@ describe("assigning portions to days (PRD 7.2)", () => {
     const over = { ...w, picks: w.picks.map((p) => (p.id === "p6" ? { ...p, portions: 6 } : p)) };
     const d2 = batches(over, ctx).find((b) => b.recipe.id === "d2")!;
     expect(d2.extra).toBe(2);
+  });
+  it("counts the containers waiting for each day", () => {
+    const byDay = containersByDay(sampleWeek(), ctx);
+    // Tuesday loses Doreen's lunch, Wednesday loses Shiva's dinner.
+    expect(byDay).toEqual({ Mon: 8, Tue: 7, Wed: 7, Thu: 8, Fri: 8 });
+    expect(Object.values(byDay).reduce((a, b) => a + b, 0)).toBe(38);
   });
   it("summarises prep with frozen containers on Thursday and Friday", () => {
     const s = prepSummary(sampleWeek(), ctx);
