@@ -31,7 +31,7 @@ Shiva keeps a separate "shared plumbing" runbook covering the whole project. It 
 - **Versions are pinned.** A planned week references `week_picks.version_id`. Tweaking a recipe creates a new version and never changes a planned week's list or prep.
 - **Design tokens live in `app/globals.css`**, ported from the prototype. Use the existing classes (`.tape`, `.block`, `.rows`, `.stepper`, `.btn`, `.panel`) before adding new ones. The masking-tape label is the one loud element.
 - **Phone first.** Design at 380 px, check at 360 px. Visible focus states, `prefers-reduced-motion`, both color schemes.
-- Route handlers only where a secret is involved (`app/api/structure` for Claude). Everything else goes through supabase-js.
+- Route handlers only where a secret is involved (`app/api/structure` calls Claude with `claude-opus-5` and structured outputs). Everything else goes through supabase-js. The proxy skips `/api/*` so handlers can answer with a real status rather than a redirect to the login page.
 - Next.js 16: the request hook file is `proxy.ts`, `cookies()` and `params` are async.
 
 ## Commands

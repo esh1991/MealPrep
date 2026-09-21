@@ -37,7 +37,19 @@ Follow `docs/SETUP-GOOGLE.md`. About 10 minutes: a Google Cloud project of MealP
 
 Copy `.env.example` to `.env.local` and fill in the Supabase anon key and the Google client ID. Restart `npm run dev`.
 
-### 4. Vercel
+### 4. Recipe import (Phase 7)
+
+Importing a recipe from a photo or a pile of notes calls Claude from the server, so the key never reaches the browser.
+
+**Create the usage table.** Run `supabase/migrations/0004_api_usage.sql` in the SQL editor. It records the tokens each import costs, which Insights turns into a running total. Then run `npm run types` to pick the new table up.
+
+**Get a key.** console.anthropic.com, API keys, create one. Set a monthly spend limit while you are there: imports cost a few cents each, so a limit is cheap insurance rather than a real constraint.
+
+**Add it** to `.env.local` as `ANTHROPIC_API_KEY`, and to Vercel as a normal private Environment Variable. It has no `NEXT_PUBLIC_` prefix precisely because it must stay server-side.
+
+Until the key is set, the import buttons return a plain message saying so rather than failing oddly.
+
+### 5. Vercel
 
 1. Import the GitHub repo into Vercel as its own project.
 2. Add `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` and `NEXT_PUBLIC_GOOGLE_CLIENT_ID`. `ANTHROPIC_API_KEY` comes in Phase 7.

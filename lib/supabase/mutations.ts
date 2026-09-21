@@ -1,6 +1,7 @@
 import { createClient } from "./client";
 import type { MealType, Rating, Unit } from "@/lib/domain";
 import { guessFoodAisle } from "@/lib/domain";
+import type { NormalizedDraft } from "@/lib/structure/normalize";
 
 // Writes. Every one of these runs under row level security as the signed-in
 // member, so there is no household check to forget here.
@@ -172,4 +173,73 @@ export async function updateRecipeDetails(
     .update({ name: details.name.trim(), type: details.type, source_ref: details.sourceRef.trim() })
     .eq("id", recipeId);
   if (error) throw error;
+}
+
+/**
+ * Saves a structured draft as a new recipe at version 1, with whatever the
+ * reader guessed kept on the recipe until someone taps Looks right.
+ */
+export async function createRecipeFromDraft(input: {
+  householdId: string;
+  memberId: string;
+  draft: NormalizedDraft;
+  sourceKind: "photo" | "notes";
+}): Promise<string> {
+  const supabase = createClient();
+  const { draft } = input;
+
+  const ingredientIds = await Promise.all(
+    draft.ingredients.map((x) => x.ingredientId ?? resolveIngredient(input.householdId, x.name)),
+  );
+
+  const { data: recipe, error } = await supabase
+    .from("recipes")
+    .insert({
+      household_id: input.householdId,
+      type: draft.type,
+      name: draft.name,
+      method: draft.method,
+      rating: "good",
+      source_kind: input.sourceKind,
+      source_ref: input.sourceKind === "photo" ? "From a photo" : "From your notes",
+      open_guesses: draft.guesses,
+    })
+    .select("id")
+    .single();
+  if (error) throw error;
+
+  const { data: version, error: versionError } = await supabase
+    .from("recipe_versions")
+    .insert({
+      household_id: input.householdId,
+      recipe_id: recipe.id,
+      version_no: 1,
+      base_servings: draft.baseServings,
+      cal: draft.cal,
+      protein_g: draft.protein,
+      carbs_g: draft.carbs,
+      fat_g: draft.fat,
+      steps: draft.steps,
+      note: input.sourceKind === "photo" ? "Created from a photo." : "Created from your notes.",
+      created_by: input.memberId,
+    })
+    .select("id")
+    .single();
+  if (versionError) throw versionError;
+
+  if (draft.ingredients.length) {
+    const { error: ingError } = await supabase.from("recipe_version_ingredients").insert(
+      draft.ingredients.map((x, i) => ({
+        version_id: version.id,
+        ingredient_id: ingredientIds[i],
+        qty: x.qty,
+        unit: x.unit,
+        sort_order: i,
+      })),
+    );
+    if (ingError) throw ingError;
+  }
+
+  await supabase.from("recipes").update({ current_version_id: version.id }).eq("id", recipe.id);
+  return recipe.id as string;
 }

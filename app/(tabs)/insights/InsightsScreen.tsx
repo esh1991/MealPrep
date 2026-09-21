@@ -9,6 +9,7 @@ import { useToast } from "@/components/Toast";
 import { useHousehold } from "@/lib/household/context";
 import { createClient } from "@/lib/supabase/client";
 import { loadWeekSummaries } from "@/lib/supabase/summaries";
+import { loadUsage, summarise, type UsageRow } from "@/lib/supabase/usage";
 import { swapPick } from "@/lib/supabase/weekMutations";
 import {
   dailyAverage,
@@ -33,6 +34,7 @@ export default function InsightsScreen() {
     household;
   const toast = useToast();
   const [summaries, setSummaries] = useState<WeekSummary[] | null>(null);
+  const [usage, setUsage] = useState<UsageRow[] | null>(null);
   const [busy, setBusy] = useState(false);
 
   // Read across every planned week once, for the sections below the fold.
@@ -40,6 +42,9 @@ export default function InsightsScreen() {
     let cancelled = false;
     void loadWeekSummaries(createClient()).then((rows) => {
       if (!cancelled) setSummaries(rows);
+    });
+    void loadUsage(createClient()).then((rows) => {
+      if (!cancelled) setUsage(rows);
     });
     return () => {
       cancelled = true;
@@ -152,6 +157,7 @@ export default function InsightsScreen() {
 
       <ProteinTrend summaries={summaries} versions={versions} today={today} />
       <Library summaries={summaries} recipes={recipes} today={today} />
+      <ImportCost rows={usage} />
     </>
   );
 }
@@ -288,5 +294,51 @@ function Library({
         </section>
       ) : null}
     </>
+  );
+}
+
+/** What recipe imports have cost, since it is real money leaving an account. */
+function ImportCost({ rows }: { rows: UsageRow[] | null }) {
+  if (!rows) return null;
+  const s = summarise(rows);
+  if (!rows.length) {
+    return (
+      <section className="section">
+        <h2>Recipe imports</h2>
+        <p className="empty">
+          Nothing imported yet, so nothing spent. Photo and word-dump imports are charged per
+          recipe and land here.
+        </p>
+      </section>
+    );
+  }
+
+  const money = (v: number) => (v < 0.01 ? "under 1¢" : `$${v.toFixed(2)}`);
+  return (
+    <section className="section">
+      <h2>Recipe imports</h2>
+      <ul className="fridge">
+        <li>
+          <strong>{s.imports}</strong>
+          <span>imported</span>
+        </li>
+        <li>
+          <strong>{money(s.cost)}</strong>
+          <span>spent</span>
+        </li>
+        <li>
+          <strong>{money(s.perImport)}</strong>
+          <span>each</span>
+        </li>
+        <li>
+          <strong>{s.failed}</strong>
+          <span>failed</span>
+        </li>
+      </ul>
+      <p className="fine">
+        {n0(s.inputTokens)} tokens read and {n0(s.outputTokens)} written, priced at Claude Opus 5
+        rates. A failed read still costs tokens, so its cost is carried by the recipes that worked.
+      </p>
+    </section>
   );
 }

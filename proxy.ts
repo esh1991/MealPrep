@@ -32,8 +32,11 @@ export async function proxy(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
   const isPublic = PUBLIC_PREFIXES.some((p) => path.startsWith(p));
+  // Route handlers answer for themselves. Redirecting one to the login page
+  // would hand the caller HTML where it expected an error to read.
+  const isApi = path.startsWith("/api/");
 
-  if (!user && !isPublic) {
+  if (!user && !isPublic && !isApi) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.search = "";
